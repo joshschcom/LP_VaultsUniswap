@@ -42,6 +42,8 @@ contract PreflightRobinhood is Script {
         uint256 maxStockPriceUSD18;
         uint256 maxStockFeedAge;
         uint256 sequencerGracePeriod;
+        uint256 maxPriceDeviationBps;
+        uint256 removalToleranceBps;
         uint24 fee;
         int24 tickSpacing;
         bool sequencerWaiverApproved;
@@ -103,6 +105,7 @@ contract PreflightRobinhood is Script {
         require(stateView.getLiquidity(id) == liquidity, "STATE_VIEW_LIQUIDITY_MISMATCH");
 
         IAggregatorV3 feed = IAggregatorV3(input.stockFeed);
+        require(feed.decimals() <= 36, "FEED_DECIMALS");
         (uint80 roundId, int256 answer,, uint256 updatedAt, uint80 answeredInRound) =
             feed.latestRoundData();
         require(answer > 0 && updatedAt != 0 && answeredInRound >= roundId, "INVALID_FEED");
@@ -110,6 +113,7 @@ contract PreflightRobinhood is Script {
         require(block.timestamp - updatedAt <= input.maxStockFeedAge, "STALE_FEED");
         uint256 stockPriceUSD18 =
             VaultMath.scaleToWad(uint256(answer), feed.decimals(), Math.Rounding.Floor);
+        require(stockPriceUSD18 != 0, "NORMALIZED_ZERO_PRICE");
         require(
             input.minStockPriceUSD18 <= stockPriceUSD18
                 && stockPriceUSD18 <= input.maxStockPriceUSD18,
@@ -124,6 +128,8 @@ contract PreflightRobinhood is Script {
         console2.log("feed", feed.description());
         console2.log("feed decimals", feed.decimals());
         console2.log("stock price USD18", stockPriceUSD18);
+        console2.log("maximum pool deviation bps", input.maxPriceDeviationBps);
+        console2.log("liquidity-removal tolerance bps", input.removalToleranceBps);
         console2.log("pool id");
         console2.logBytes32(input.expectedPoolId);
         console2.log("sqrtPriceX96", uint256(sqrtPriceX96));
@@ -157,6 +163,8 @@ contract PreflightRobinhood is Script {
         input.maxStockPriceUSD18 = vm.envUint("MAX_STOCK_PRICE_USD18");
         input.maxStockFeedAge = vm.envUint("MAX_STOCK_FEED_AGE");
         input.sequencerGracePeriod = vm.envOr("SEQUENCER_GRACE_PERIOD", uint256(0));
+        input.maxPriceDeviationBps = vm.envOr("MAX_PRICE_DEVIATION_BPS", uint256(300));
+        input.removalToleranceBps = vm.envOr("REMOVAL_TOLERANCE_BPS", uint256(400));
         input.fee = uint24(vm.envUint("POOL_FEE"));
         input.tickSpacing = int24(vm.envInt("TICK_SPACING"));
         input.sequencerWaiverApproved = vm.envOr("SEQUENCER_WAIVER_APPROVED", false);
@@ -181,6 +189,12 @@ contract PreflightRobinhood is Script {
             "INVALID_PRICE_BOUNDS"
         );
         require(input.maxStockFeedAge != 0, "INVALID_FEED_AGE");
+        require(input.maxPriceDeviationBps <= 9_900, "INVALID_POOL_DEVIATION");
+        require(
+            input.removalToleranceBps <= 10_000
+                && input.removalToleranceBps >= input.maxPriceDeviationBps + 100,
+            "REMOVAL_TOLERANCE_TOO_LOW"
+        );
     }
 
     function _validateSequencer(Inputs memory input) internal view {

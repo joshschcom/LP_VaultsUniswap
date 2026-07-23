@@ -176,17 +176,22 @@ contract RobinhoodNVDAForkTest is Test {
         assertEq(position.liquidity, liquidityAdded);
         assertGt(position.stockAmount, 0);
         assertGt(position.usdgAmount, 0);
+        assertEq(position.tokenId, IPositionManager(POSITION_MANAGER).nextTokenId() - 1);
+        _assertPermit2Revoked(address(adapter));
 
         adapter.collectFees(PAIR_ID, block.timestamp + 300);
+        uint160 referenceSqrtPriceX96 = _referenceSqrtPriceX96();
         uint128 firstSlice = position.liquidity / 2;
-        (uint256 firstStock, uint256 firstUsdg) =
-            adapter.decreaseLiquidity(PAIR_ID, firstSlice, block.timestamp + 300);
+        (uint256 firstStock, uint256 firstUsdg,) = adapter.decreaseLiquidity(
+            PAIR_ID, firstSlice, referenceSqrtPriceX96, block.timestamp + 300
+        );
         assertGt(firstStock, 0);
         assertGt(firstUsdg, 0);
 
         position = adapter.positionState(PAIR_ID);
-        (uint256 finalStock, uint256 finalUsdg) =
-            adapter.decreaseLiquidity(PAIR_ID, position.liquidity, block.timestamp + 300);
+        (uint256 finalStock, uint256 finalUsdg,) = adapter.decreaseLiquidity(
+            PAIR_ID, position.liquidity, referenceSqrtPriceX96, block.timestamp + 300
+        );
         assertGt(finalStock, 0);
         assertGt(finalUsdg, 0);
         adapter.burnEmptyPosition(PAIR_ID, block.timestamp + 300);
@@ -201,11 +206,13 @@ contract RobinhoodNVDAForkTest is Test {
             adapter.swapExactInput(PAIR_ID, USDG, 10e6, 0.04e18, block.timestamp + 300);
         assertEq(usdgUsed, 10e6);
         assertGe(stockOut, 0.04e18);
+        _assertPermit2Revoked(address(adapter));
 
         (uint256 stockUsed, uint256 usdgOut) =
             adapter.swapExactInput(PAIR_ID, NVDA, 0.01e18, 2e6, block.timestamp + 300);
         assertEq(stockUsed, 0.01e18);
         assertGe(usdgOut, 2e6);
+        _assertPermit2Revoked(address(adapter));
     }
 
     function testFullVaultRebalanceCheckpointAndIndependentWithdrawals() external {
@@ -226,8 +233,6 @@ contract RobinhoodNVDAForkTest is Test {
         system.vault.depositForPair(PAIR_ID, NVDA, 1e18);
         vm.prank(usdgSide);
         system.vault.depositForPair(PAIR_ID, USDG, 250e6);
-        system.vault.refreshApprovals(PAIR_ID, uint48(block.timestamp + 1 days));
-
         vm.prank(address(0xF00D));
         system.vault.rebalance(PAIR_ID, block.timestamp + 60);
         assertGt(system.adapter.positionState(PAIR_ID).liquidity, 0);
@@ -255,7 +260,6 @@ contract RobinhoodNVDAForkTest is Test {
         deal(USDG, address(this), 1_000e6);
         IERC20(NVDA).approve(address(adapter), type(uint256).max);
         IERC20(USDG).approve(address(adapter), type(uint256).max);
-        adapter.refreshApprovals(PAIR_ID, uint48(block.timestamp + 1 days));
     }
 
     function _deployAdapter() internal returns (UniswapV4PairedAdapter adapter) {
@@ -346,7 +350,6 @@ contract RobinhoodNVDAForkTest is Test {
                     maxPairValueUSDG: uint128(1_000e18),
                     maxSettlementSwapUSDG: uint128(100e18),
                     maxCheckpointAge: 1 hours,
-                    minDeadlineDelay: 1,
                     maxDeadlineDelay: 300,
                     reserveFeeBps: 2_000,
                     maxSwapSlippageBps: 100,
@@ -363,7 +366,7 @@ contract RobinhoodNVDAForkTest is Test {
                     usdg: USDG,
                     poolKey: _key(),
                     expectedPoolId: NVDA_POOL_ID,
-                    maxLiquiditySlippageBps: 100
+                    removalToleranceBps: 600
                 })
             );
     }
@@ -396,9 +399,42 @@ contract RobinhoodNVDAForkTest is Test {
                 usdg: USDG,
                 poolKey: _key(),
                 expectedPoolId: NVDA_POOL_ID,
-                maxLiquiditySlippageBps: 100
+                removalToleranceBps: 600
             })
         );
+    }
+
+    function _referenceSqrtPriceX96() internal returns (uint160 referenceSqrtPriceX96) {
+        StockOracleGuard implementation = new StockOracleGuard();
+        StockOracleGuard guard = StockOracleGuard(
+            address(
+                new ERC1967Proxy(
+                    address(implementation),
+                    abi.encodeCall(
+                        StockOracleGuard.initialize, (address(this), IPoolManager(POOL_MANAGER))
+                    )
+                )
+            )
+        );
+        guard.configurePair(PAIR_ID, _feedConfig());
+        (,, referenceSqrtPriceX96) = guard.validatePoolPrice(PAIR_ID, _key());
+    }
+
+    function _assertPermit2Revoked(address adapter) internal view {
+        assertEq(IERC20(NVDA).allowance(adapter, PERMIT2), 0);
+        assertEq(IERC20(USDG).allowance(adapter, PERMIT2), 0);
+        (uint160 nvdaPositionAllowance,,) =
+            IAllowanceTransfer(PERMIT2).allowance(adapter, NVDA, POSITION_MANAGER);
+        (uint160 usdgPositionAllowance,,) =
+            IAllowanceTransfer(PERMIT2).allowance(adapter, USDG, POSITION_MANAGER);
+        (uint160 nvdaRouterAllowance,,) =
+            IAllowanceTransfer(PERMIT2).allowance(adapter, NVDA, UNIVERSAL_ROUTER);
+        (uint160 usdgRouterAllowance,,) =
+            IAllowanceTransfer(PERMIT2).allowance(adapter, USDG, UNIVERSAL_ROUTER);
+        assertEq(nvdaPositionAllowance, 0);
+        assertEq(usdgPositionAllowance, 0);
+        assertEq(nvdaRouterAllowance, 0);
+        assertEq(usdgRouterAllowance, 0);
     }
 
     function _key() internal pure returns (PoolKey memory) {

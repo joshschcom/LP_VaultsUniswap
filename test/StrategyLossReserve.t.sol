@@ -62,4 +62,68 @@ contract StrategyLossReserveTest is Test {
         reserve.withdrawPausedReserve(PAIR_ID, address(usdg), address(this), 10e6);
         assertEq(usdg.balanceOf(address(this)), 10e6);
     }
+
+    function testConfiguredReserveTokensCannotChangeButLimitsCan() external {
+        MockERC20 replacement = new MockERC20("Replacement", "R", 18);
+        StrategyLossReserve.ReserveConfig memory config = StrategyLossReserve.ReserveConfig({
+            stockToken: address(replacement),
+            usdg: address(usdg),
+            maxUsePerTxUSDG: uint128(40e18),
+            dailyCapUSDG: uint128(60e18),
+            maxCoverageBps: 5_000,
+            paused: false,
+            exists: true
+        });
+
+        vm.expectRevert(StrategyLossReserve.InvalidConfiguration.selector);
+        reserve.configurePair(PAIR_ID, config);
+
+        config.stockToken = address(stock);
+        config.maxUsePerTxUSDG = uint128(20e18);
+        config.dailyCapUSDG = uint128(30e18);
+        config.paused = true;
+        reserve.configurePair(PAIR_ID, config);
+
+        (
+            address updatedStock,
+            address updatedUsdg,
+            uint128 updatedPerTx,
+            uint128 updatedDaily,
+            uint16 updatedCoverage,
+            bool updatedPaused,
+            bool updatedExists
+        ) = reserve.reserveConfig(PAIR_ID);
+        assertEq(updatedStock, address(stock));
+        assertEq(updatedUsdg, address(usdg));
+        assertEq(updatedPerTx, 20e18);
+        assertEq(updatedDaily, 30e18);
+        assertEq(updatedCoverage, 5_000);
+        assertTrue(updatedPaused);
+        assertTrue(updatedExists);
+        assertEq(reserve.available(PAIR_ID, address(usdg)), 1_000e6);
+    }
+
+    function testOnlyUnaccountedSurplusCanBeSwept() external {
+        address receiver = makeAddr("surplusReceiver");
+        usdg.mint(address(reserve), 50e6);
+
+        assertEq(reserve.accountedBalance(address(usdg)), 1_000e6);
+        reserve.sweepSurplus(address(usdg), receiver, 50e6);
+        assertEq(usdg.balanceOf(receiver), 50e6);
+        assertEq(reserve.accountedBalance(address(usdg)), 1_000e6);
+
+        vm.expectRevert(StrategyLossReserve.InsufficientSurplus.selector);
+        reserve.sweepSurplus(address(usdg), receiver, 1);
+    }
+
+    function testFeeOnTransferFromReserveToVaultRevertsWithoutAccountingDrift() external {
+        usdg.setTransferFee(100, address(reserve), address(this));
+
+        vm.expectRevert(StrategyLossReserve.BalanceDeltaMismatch.selector);
+        reserve.cover(PAIR_ID, address(usdg), 10e6, 10e18, 10e18);
+
+        assertEq(reserve.available(PAIR_ID, address(usdg)), 1_000e6);
+        assertEq(reserve.accountedBalance(address(usdg)), 1_000e6);
+        assertEq(usdg.balanceOf(address(this)), 0);
+    }
 }

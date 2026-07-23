@@ -47,6 +47,9 @@
     "zeroCapSemantics": "disabled",
     "capacityControl": "Only configured stock-side and USDG-side accounts may deposit; optional nonzero circuit-breaker caps remain governance-configurable.",
     "maxSettlementSwapUSDG18": "TODO_DEPLOYMENT_VERIFY",
+    "maxPriceDeviationBps": 300,
+    "removalToleranceBps": 400,
+    "removalOperationalBufferBps": 100,
     "reserve": {
       "initialGovernanceSeedMaxUSDG18": "100000000000000000000",
       "maxUsePerTxUSDG18": "10000000000000000000",

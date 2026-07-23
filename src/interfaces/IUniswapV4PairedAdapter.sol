@@ -9,7 +9,7 @@ interface IUniswapV4PairedAdapter {
         address usdg;
         PoolKey poolKey;
         bytes32 expectedPoolId;
-        uint16 maxLiquiditySlippageBps;
+        uint16 removalToleranceBps;
     }
 
     struct PositionState {
@@ -30,9 +30,12 @@ interface IUniswapV4PairedAdapter {
         uint256 deadline
     ) external returns (uint256 stockUsed, uint256 usdgUsed, uint128 liquidityAdded);
 
-    function decreaseLiquidity(bytes32 pairId, uint128 liquidity, uint256 deadline)
-        external
-        returns (uint256 stockReceived, uint256 usdgReceived);
+    function decreaseLiquidity(
+        bytes32 pairId,
+        uint128 liquidity,
+        uint160 referenceSqrtPriceX96,
+        uint256 deadline
+    ) external returns (uint256 stockReceived, uint256 usdgReceived, uint128 liquidityRemoved);
 
     function collectFees(bytes32 pairId, uint256 deadline)
         external
@@ -49,6 +52,4 @@ interface IUniswapV4PairedAdapter {
     function burnEmptyPosition(bytes32 pairId, uint256 deadline)
         external
         returns (uint256 stockReceived, uint256 usdgReceived);
-    function refreshApprovals(bytes32 pairId, uint48 expiration) external;
-    function revokeApprovals(bytes32 pairId) external;
 }

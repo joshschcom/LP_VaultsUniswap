@@ -76,10 +76,10 @@ contract MockLiquidityAdapter is IUniswapV4PairedAdapter {
         pair.position.usdgAmount += usdgUsed;
     }
 
-    function decreaseLiquidity(bytes32 pairId, uint128 liquidity, uint256)
+    function decreaseLiquidity(bytes32 pairId, uint128 liquidity, uint160, uint256)
         external
         onlyVault
-        returns (uint256 stockReceived, uint256 usdgReceived)
+        returns (uint256 stockReceived, uint256 usdgReceived, uint128 liquidityRemoved)
     {
         Pair storage pair = _pairs[pairId];
         uint128 total = pair.position.liquidity;
@@ -88,6 +88,7 @@ contract MockLiquidityAdapter is IUniswapV4PairedAdapter {
         pair.position.stockAmount -= stockReceived;
         pair.position.usdgAmount -= usdgReceived;
         pair.position.liquidity -= liquidity;
+        liquidityRemoved = total - pair.position.liquidity;
         IERC20(pair.stock).safeTransfer(vault, stockReceived);
         IERC20(pair.usdg).safeTransfer(vault, usdgReceived);
     }
@@ -134,7 +135,4 @@ contract MockLiquidityAdapter is IUniswapV4PairedAdapter {
         _pairs[pairId].position.tokenId = 0;
         return (0, 0);
     }
-
-    function refreshApprovals(bytes32, uint48) external view onlyVault { }
-    function revokeApprovals(bytes32) external view onlyVault { }
 }

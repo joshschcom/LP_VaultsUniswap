@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import { Test } from "forge-std/Test.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
 import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
@@ -53,7 +54,6 @@ contract RobinhoodBoostedVaultTest is Test {
             maxPairValueUSDG: 0,
             maxSettlementSwapUSDG: uint128(25_000e18),
             maxCheckpointAge: 1 days,
-            minDeadlineDelay: 1,
             maxDeadlineDelay: 300,
             reserveFeeBps: 2_000,
             maxSwapSlippageBps: 100,
@@ -71,7 +71,7 @@ contract RobinhoodBoostedVaultTest is Test {
                 usdg: address(usdg),
                 poolKey: key,
                 expectedPoolId: keccak256("pool"),
-                maxLiquiditySlippageBps: 100
+                removalToleranceBps: 400
             });
         vault.registerPair(PAIR_ID, config, adapterConfig);
 
@@ -177,15 +177,127 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
     }
 
-    function testStaleCheckpointBlocksLPWithdrawalButNotIdleWithdrawal() external {
+    function testStaleCheckpointIsRefreshedInsideLPWithdrawal() external {
         _depositPair(10e18, 1_000e6);
         vm.prank(keeper);
         vault.rebalance(PAIR_ID, block.timestamp + 60);
         vm.warp(block.timestamp + 1 days + 1);
+        uint256 deadline = vm.getBlockTimestamp() + 60;
 
         vm.prank(stockAccount);
-        vm.expectRevert(RobinhoodBoostedVault.CheckpointStale.selector);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, deadline);
+
+        assertEq(returned, 1e18);
+        assertEq(loss, 0);
+        assertEq(stock.balanceOf(receiver), 1e18);
+        assertEq(vault.ledger(PAIR_ID).lastCheckpoint, block.timestamp);
+    }
+
+    function testManipulatedLPBackedWithdrawalFailsClosed() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        IUniswapV4PairedAdapter.PositionState memory beforePosition = adapter.positionState(PAIR_ID);
+        oracle.setShouldRevert(true);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(bytes("ORACLE"));
         vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp + 60);
+
+        assertEq(adapter.positionState(PAIR_ID).liquidity, beforePosition.liquidity);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10e18);
+    }
+
+    function testManipulatedGuardianExitFailsClosedWithoutEnteringEmergencyMode() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        uint128 liquidity = adapter.positionState(PAIR_ID).liquidity;
+        oracle.setShouldRevert(true);
+
+        vm.prank(guardian);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.emergencyDecrease(PAIR_ID, liquidity / 2, block.timestamp + 60);
+
+        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        assertFalse(config.emergencyMode);
+        assertEq(adapter.positionState(PAIR_ID).liquidity, liquidity);
+    }
+
+    function testCurrentTimestampDeadlineIsAcceptedForLPWithdrawal() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        vm.prank(stockAccount);
+        (uint256 returned,) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp);
+
+        assertEq(returned, 1e18);
+    }
+
+    function testFeeOnTransferToWithdrawalReceiverRevertsWithoutLedgerDrift() external {
+        vm.prank(stockAccount);
+        vault.depositForPair(PAIR_ID, address(stock), 10e18);
+        stock.setTransferFee(100, address(vault), receiver);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(RobinhoodBoostedVault.BalanceDeltaMismatch.selector);
+        vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, 0);
+
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.liquidAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(stock.balanceOf(receiver), 0);
+    }
+
+    function testFeeOnTransferFromVaultToReserveRevertsWithoutLedgerDrift() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        adapter.setFees(PAIR_ID, 1e18, 0);
+        stock.setTransferFee(100, address(vault), address(reserve));
+
+        vm.prank(keeper);
+        vm.expectRevert(RobinhoodBoostedVault.BalanceDeltaMismatch.selector);
+        vault.collectFees(PAIR_ID, block.timestamp + 60);
+
+        assertEq(reserve.available(PAIR_ID, address(stock)), 0);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10e18);
+    }
+
+    function testReserveReportCannotOvercreditObservedVaultBalance() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        stock.mint(address(this), 1e18);
+        stock.approve(address(reserve), 1e18);
+        reserve.deposit(PAIR_ID, address(stock), 1e18);
+        reserve.setCoverReportBonus(1);
+        adapter.setPosition(PAIR_ID, 0, 1_000e6);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(RobinhoodBoostedVault.BalanceDeltaMismatch.selector);
+        vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp + 60);
+
+        assertEq(reserve.available(PAIR_ID, address(stock)), 1e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10e18);
+    }
+
+    function testCheckpointUsesCheckedSignedPnlConversion() external {
+        uint256 sideValue = uint256(type(int256).max) / 2 + 1e18;
+        uint256 stockAmount = sideValue / 100 + 1;
+        uint256 usdgAmount = sideValue / 1e12 + 1;
+        stock.mint(stockAccount, stockAmount);
+        usdg.mint(usdgAccount, usdgAmount);
+        _depositPair(stockAmount, usdgAmount);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        adapter.setPosition(PAIR_ID, 0, 0);
+
+        vm.prank(keeper);
+        vm.expectPartialRevert(SafeCast.SafeCastOverflowedUintToInt.selector);
+        vault.checkpoint(PAIR_ID, block.timestamp + 60);
     }
 
     function testGuardianCanPauseButCannotUnpause() external {

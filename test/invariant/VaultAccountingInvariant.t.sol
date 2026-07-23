@@ -135,7 +135,6 @@ contract VaultAccountingInvariant is StdInvariant, Test {
                 maxPairValueUSDG: type(uint128).max,
                 maxSettlementSwapUSDG: type(uint128).max,
                 maxCheckpointAge: 1 days,
-                minDeadlineDelay: 1,
                 maxDeadlineDelay: 300,
                 reserveFeeBps: 2_000,
                 maxSwapSlippageBps: 100,
@@ -152,7 +151,7 @@ contract VaultAccountingInvariant is StdInvariant, Test {
                 usdg: address(usdg),
                 poolKey: key,
                 expectedPoolId: keccak256("pool"),
-                maxLiquiditySlippageBps: 100
+                removalToleranceBps: 400
             })
         );
         vm.prank(stockAccount);

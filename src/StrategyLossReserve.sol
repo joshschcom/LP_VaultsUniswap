@@ -11,6 +11,7 @@ import {
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IStrategyLossReserve } from "./interfaces/IStrategyLossReserve.sol";
 
@@ -21,6 +22,7 @@ contract StrategyLossReserve is
     IStrategyLossReserve
 {
     using SafeERC20 for IERC20;
+    using SafeCast for uint256;
 
     bytes32 public constant CONFIG_ROLE = keccak256("CONFIG_ROLE");
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
@@ -44,6 +46,7 @@ contract StrategyLossReserve is
     mapping(bytes32 => ReserveConfig) public reserveConfig;
     mapping(bytes32 => mapping(address => uint256)) private _available;
     mapping(bytes32 => DailyUsage) public dailyUsage;
+    mapping(address => uint256) public accountedBalance;
 
     error InvalidConfiguration();
     error UnknownPair();
@@ -51,6 +54,8 @@ contract StrategyLossReserve is
     error ReservePaused();
     error CoverageCapExceeded();
     error PairMustBePaused();
+    error BalanceDeltaMismatch();
+    error InsufficientSurplus();
 
     event ReserveConfigured(bytes32 indexed pairId, address stockToken, address usdg);
     event ReserveFunded(
@@ -68,6 +73,7 @@ contract StrategyLossReserve is
     event ReserveWithdrawn(
         bytes32 indexed pairId, address indexed token, address indexed to, uint256 amount
     );
+    event SurplusSwept(address indexed token, address indexed to, uint256 amount);
 
     constructor() {
         _disableInitializers();
@@ -90,6 +96,11 @@ contract StrategyLossReserve is
             pairId == bytes32(0) || config.stockToken == address(0) || config.usdg == address(0)
                 || config.stockToken == config.usdg || config.maxCoverageBps > BPS
                 || config.maxUsePerTxUSDG == 0 || config.dailyCapUSDG < config.maxUsePerTxUSDG
+        ) revert InvalidConfiguration();
+        ReserveConfig storage current = reserveConfig[pairId];
+        if (
+            current.exists
+                && (config.stockToken != current.stockToken || config.usdg != current.usdg)
         ) revert InvalidConfiguration();
         reserveConfig[pairId] = config;
         reserveConfig[pairId].exists = true;
@@ -115,6 +126,7 @@ contract StrategyLossReserve is
         asset.safeTransferFrom(msg.sender, address(this), amount);
         received = asset.balanceOf(address(this)) - beforeBalance;
         _available[pairId][token] += received;
+        accountedBalance[token] += received;
         emit ReserveFunded(pairId, token, msg.sender, received);
     }
 
@@ -125,6 +137,9 @@ contract StrategyLossReserve is
         uint256 requestedValueUSDG,
         uint256 realizedDeficitUSDG
     ) external onlyRole(VAULT_ROLE) nonReentrant returns (uint256 covered) {
+        // Values and deficit attestations come only from the configured vault. The
+        // reserve intentionally treats that access-controlled caller as its accounting
+        // trust boundary and independently enforces the configured coverage limits.
         ReserveConfig storage config = reserveConfig[pairId];
         _validateToken(config, token);
         if (config.paused) revert ReservePaused();
@@ -149,9 +164,10 @@ contract StrategyLossReserve is
             usage.day = day;
             usage.usedUSDG = 0;
         }
-        usage.usedUSDG += uint192(coveredValueUSDG);
+        usage.usedUSDG += coveredValueUSDG.toUint192();
         _available[pairId][token] -= covered;
-        IERC20(token).safeTransfer(msg.sender, covered);
+        accountedBalance[token] -= covered;
+        _pushExact(token, msg.sender, covered);
 
         emit ReserveCovered(
             pairId,
@@ -177,8 +193,38 @@ contract StrategyLossReserve is
         if (!config.paused) revert PairMustBePaused();
         if (to == address(0) || amount > _available[pairId][token]) revert InvalidConfiguration();
         _available[pairId][token] -= amount;
-        IERC20(token).safeTransfer(to, amount);
+        accountedBalance[token] -= amount;
+        _pushExact(token, to, amount);
         emit ReserveWithdrawn(pairId, token, to, amount);
+    }
+
+    function sweepSurplus(address token, address to, uint256 amount)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        nonReentrant
+    {
+        if (token == address(0) || to == address(0) || to == address(this)) {
+            revert InvalidConfiguration();
+        }
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        uint256 accounted = accountedBalance[token];
+        uint256 surplus = balance > accounted ? balance - accounted : 0;
+        if (amount > surplus) revert InsufficientSurplus();
+        _pushExact(token, to, amount);
+        emit SurplusSwept(token, to, amount);
+    }
+
+    function _pushExact(address token, address to, uint256 amount) internal {
+        IERC20 asset = IERC20(token);
+        uint256 senderBefore = asset.balanceOf(address(this));
+        uint256 receiverBefore = asset.balanceOf(to);
+        asset.safeTransfer(to, amount);
+        uint256 senderAfter = asset.balanceOf(address(this));
+        uint256 receiverAfter = asset.balanceOf(to);
+        if (
+            senderAfter > senderBefore || receiverAfter < receiverBefore
+                || senderBefore - senderAfter != amount || receiverAfter - receiverBefore != amount
+        ) revert BalanceDeltaMismatch();
     }
 
     function _validateToken(ReserveConfig storage config, address token) internal view {
@@ -186,5 +232,5 @@ contract StrategyLossReserve is
         if (token != config.stockToken && token != config.usdg) revert UnsupportedToken();
     }
 
-    uint256[45] private __gap;
+    uint256[44] private __gap;
 }

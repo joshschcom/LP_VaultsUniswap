@@ -9,6 +9,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IPoolManager } from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
@@ -35,6 +36,7 @@ contract UniswapV4PairedAdapter is
     IUniswapV4PairedAdapter
 {
     using SafeERC20 for IERC20;
+    using SafeCast for uint256;
     using PoolIdLibrary for PoolKey;
     using StateLibrary for IPoolManager;
 
@@ -47,7 +49,7 @@ contract UniswapV4PairedAdapter is
         bytes32 poolId;
         uint256 tokenId;
         uint128 liquidity;
-        uint16 maxLiquiditySlippageBps;
+        uint16 removalToleranceBps;
         bool registered;
     }
 
@@ -77,11 +79,12 @@ contract UniswapV4PairedAdapter is
     error PoolMismatch();
     error PoolUninitialized();
     error InvalidDeadline();
-    error AmountOverflow();
     error InvalidPosition();
     error UnsupportedToken();
     error InsufficientLiquidity();
     error SlippageExceeded();
+    error BalanceDeltaMismatch();
+    error InvalidReferencePrice();
 
     event PairRegistered(
         bytes32 indexed pairId, bytes32 indexed poolId, address stockToken, address usdg
@@ -105,8 +108,6 @@ contract UniswapV4PairedAdapter is
         bytes32 indexed pairId, address indexed tokenIn, uint256 amountIn, uint256 amountOut
     );
     event PositionBurned(bytes32 indexed pairId, uint256 indexed tokenId);
-    event ApprovalsRefreshed(bytes32 indexed pairId, uint48 expiration);
-    event ApprovalsRevoked(bytes32 indexed pairId);
 
     modifier onlyVault() {
         if (msg.sender != vault) revert NotVault();
@@ -141,7 +142,7 @@ contract UniswapV4PairedAdapter is
         if (
             pairId == bytes32(0) || _pairs[pairId].registered || params.stockToken == address(0)
                 || params.usdg == address(0) || params.stockToken == params.usdg
-                || params.expectedPoolId == bytes32(0) || params.maxLiquiditySlippageBps > BPS
+                || params.expectedPoolId == bytes32(0) || params.removalToleranceBps > BPS
                 || address(params.poolKey.hooks) != address(0)
         ) revert InvalidConfiguration();
 
@@ -161,7 +162,7 @@ contract UniswapV4PairedAdapter is
         pair.usdg = params.usdg;
         pair.key = key;
         pair.poolId = params.expectedPoolId;
-        pair.maxLiquiditySlippageBps = params.maxLiquiditySlippageBps;
+        pair.removalToleranceBps = params.removalToleranceBps;
         pair.registered = true;
 
         emit PairRegistered(pairId, params.expectedPoolId, params.stockToken, params.usdg);
@@ -204,12 +205,14 @@ contract UniswapV4PairedAdapter is
         PairState storage pair = _pair(pairId);
         if (stockDesired == 0 || usdgDesired == 0) revert InvalidConfiguration();
 
-        IERC20(pair.stockToken).safeTransferFrom(vault, address(this), stockDesired);
-        IERC20(pair.usdg).safeTransferFrom(vault, address(this), usdgDesired);
+        uint256 stockStart = IERC20(pair.stockToken).balanceOf(address(this));
+        uint256 usdgStart = IERC20(pair.usdg).balanceOf(address(this));
+        _pullExact(pair.stockToken, vault, stockDesired);
+        _pullExact(pair.usdg, vault, usdgDesired);
         (uint256 amount0Desired, uint256 amount1Desired) =
             _toPoolOrder(pair, stockDesired, usdgDesired);
-        _requireUint128(amount0Desired);
-        _requireUint128(amount1Desired);
+        uint128 amount0Desired128 = amount0Desired.toUint128();
+        uint128 amount1Desired128 = amount1Desired.toUint128();
 
         (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(PoolId.wrap(pair.poolId));
         uint160 sqrtLower =
@@ -221,47 +224,70 @@ contract UniswapV4PairedAdapter is
         );
         if (liquidityAdded == 0) revert InsufficientLiquidity();
 
-        uint256 stockBefore = IERC20(pair.stockToken).balanceOf(address(this));
-        uint256 usdgBefore = IERC20(pair.usdg).balanceOf(address(this));
+        uint128 liquidityBefore = pair.liquidity;
+        _approveExact(pair.stockToken, address(positionManager), stockDesired.toUint160(), deadline);
+        _approveExact(pair.usdg, address(positionManager), usdgDesired.toUint160(), deadline);
         if (pair.tokenId == 0) {
+            _mint(pair, liquidityAdded, amount0Desired128, amount1Desired128, deadline);
             uint256 nextTokenId = positionManager.nextTokenId();
-            _mint(pair, liquidityAdded, uint128(amount0Desired), uint128(amount1Desired), deadline);
-            if (IERC721(address(positionManager)).ownerOf(nextTokenId) != address(this)) {
+            if (nextTokenId == 0) revert InvalidPosition();
+            uint256 mintedTokenId = nextTokenId - 1;
+            if (IERC721(address(positionManager)).ownerOf(mintedTokenId) != address(this)) {
                 revert InvalidPosition();
             }
-            pair.tokenId = nextTokenId;
+            pair.tokenId = mintedTokenId;
         } else {
-            _increase(
-                pair, liquidityAdded, uint128(amount0Desired), uint128(amount1Desired), deadline
-            );
+            _increase(pair, liquidityAdded, amount0Desired128, amount1Desired128, deadline);
         }
+        _revokeExact(pair.stockToken, address(positionManager));
+        _revokeExact(pair.usdg, address(positionManager));
         uint256 stockAfter = IERC20(pair.stockToken).balanceOf(address(this));
         uint256 usdgAfter = IERC20(pair.usdg).balanceOf(address(this));
-        stockUsed = stockBefore - stockAfter;
-        usdgUsed = usdgBefore - usdgAfter;
-        pair.liquidity = positionManager.getPositionLiquidity(pair.tokenId);
+        if (
+            stockAfter < stockStart || stockAfter > stockStart + stockDesired
+                || usdgAfter < usdgStart || usdgAfter > usdgStart + usdgDesired
+        ) revert BalanceDeltaMismatch();
+        uint256 stockRefund = stockAfter - stockStart;
+        uint256 usdgRefund = usdgAfter - usdgStart;
+        stockUsed = stockDesired - stockRefund;
+        usdgUsed = usdgDesired - usdgRefund;
 
-        if (stockAfter != 0) IERC20(pair.stockToken).safeTransfer(vault, stockAfter);
-        if (usdgAfter != 0) IERC20(pair.usdg).safeTransfer(vault, usdgAfter);
+        uint128 liquidityAfter = positionManager.getPositionLiquidity(pair.tokenId);
+        if (liquidityAfter <= liquidityBefore) revert InvalidPosition();
+        liquidityAdded = liquidityAfter - liquidityBefore;
+        pair.liquidity = liquidityAfter;
+
+        if (stockRefund != 0) _pushExact(pair.stockToken, vault, stockRefund);
+        if (usdgRefund != 0) _pushExact(pair.usdg, vault, usdgRefund);
         emit LiquidityAdded(pairId, pair.tokenId, stockUsed, usdgUsed, liquidityAdded);
     }
 
-    function decreaseLiquidity(bytes32 pairId, uint128 liquidity, uint256 deadline)
+    function decreaseLiquidity(
+        bytes32 pairId,
+        uint128 liquidity,
+        uint160 referenceSqrtPriceX96,
+        uint256 deadline
+    )
         external
         onlyVault
         nonReentrant
-        returns (uint256 stockReceived, uint256 usdgReceived)
+        returns (uint256 stockReceived, uint256 usdgReceived, uint128 liquidityRemoved)
     {
         _checkDeadline(deadline);
         PairState storage pair = _pair(pairId);
         if (liquidity == 0 || liquidity > pair.liquidity || pair.tokenId == 0) {
             revert InsufficientLiquidity();
         }
-        (uint128 amount0Min, uint128 amount1Min) = _decreaseMinimums(pair, liquidity);
+        (uint128 amount0Min, uint128 amount1Min) =
+            _decreaseMinimums(pair, liquidity, referenceSqrtPriceX96);
+        uint128 liquidityBefore = pair.liquidity;
         (stockReceived, usdgReceived) =
             _decreaseAndTransfer(pair, liquidity, amount0Min, amount1Min, deadline);
-        pair.liquidity = positionManager.getPositionLiquidity(pair.tokenId);
-        emit LiquidityDecreased(pairId, pair.tokenId, liquidity, stockReceived, usdgReceived);
+        uint128 liquidityAfter = positionManager.getPositionLiquidity(pair.tokenId);
+        if (liquidityAfter >= liquidityBefore) revert InvalidPosition();
+        liquidityRemoved = liquidityBefore - liquidityAfter;
+        pair.liquidity = liquidityAfter;
+        emit LiquidityDecreased(pairId, pair.tokenId, liquidityRemoved, stockReceived, usdgReceived);
     }
 
     function collectFees(bytes32 pairId, uint256 deadline)
@@ -288,13 +314,14 @@ contract UniswapV4PairedAdapter is
         PairState storage pair = _pair(pairId);
         if (tokenIn != pair.stockToken && tokenIn != pair.usdg) revert UnsupportedToken();
         if (amountIn == 0 || minAmountOut == 0) revert InvalidConfiguration();
-        _requireUint128(amountIn);
-        _requireUint128(minAmountOut);
+        uint128 amountIn128 = amountIn.toUint128();
+        uint128 minAmountOut128 = minAmountOut.toUint128();
 
         address tokenOut = tokenIn == pair.stockToken ? pair.usdg : pair.stockToken;
-        IERC20(tokenIn).safeTransferFrom(vault, address(this), amountIn);
-        uint256 inputBefore = IERC20(tokenIn).balanceOf(address(this));
-        uint256 outputBefore = IERC20(tokenOut).balanceOf(address(this));
+        uint256 inputStart = IERC20(tokenIn).balanceOf(address(this));
+        uint256 outputStart = IERC20(tokenOut).balanceOf(address(this));
+        _pullExact(tokenIn, vault, amountIn);
+        _approveExact(tokenIn, address(universalRouter), amountIn.toUint160(), deadline);
 
         bytes memory commands = abi.encodePacked(uint8(Commands.V4_SWAP));
         bytes[] memory inputs = new bytes[](1);
@@ -307,8 +334,8 @@ contract UniswapV4PairedAdapter is
             RouterExactInputSingleParams({
                 poolKey: pair.key,
                 zeroForOne: zeroForOne,
-                amountIn: uint128(amountIn),
-                amountOutMinimum: uint128(minAmountOut),
+                amountIn: amountIn128,
+                amountOutMinimum: minAmountOut128,
                 minHopPriceX36: 0,
                 hookData: bytes("")
             })
@@ -323,14 +350,20 @@ contract UniswapV4PairedAdapter is
         inputs[0] = abi.encode(actions, params);
 
         universalRouter.execute(commands, inputs, deadline);
+        _revokeExact(tokenIn, address(universalRouter));
         uint256 inputAfter = IERC20(tokenIn).balanceOf(address(this));
         uint256 outputAfter = IERC20(tokenOut).balanceOf(address(this));
-        amountInUsed = inputBefore - inputAfter;
-        amountOut = outputAfter - outputBefore;
+        if (
+            inputAfter < inputStart || inputAfter > inputStart + amountIn
+                || outputAfter < outputStart
+        ) revert BalanceDeltaMismatch();
+        uint256 inputRefund = inputAfter - inputStart;
+        amountInUsed = amountIn - inputRefund;
+        amountOut = outputAfter - outputStart;
         if (amountOut < minAmountOut) revert SlippageExceeded();
 
-        if (inputAfter != 0) IERC20(tokenIn).safeTransfer(vault, inputAfter);
-        if (outputAfter != 0) IERC20(tokenOut).safeTransfer(vault, outputAfter);
+        if (inputRefund != 0) _pushExact(tokenIn, vault, inputRefund);
+        if (amountOut != 0) _pushExact(tokenOut, vault, amountOut);
         emit SettlementSwap(pairId, tokenIn, amountInUsed, amountOut);
     }
 
@@ -354,27 +387,17 @@ contract UniswapV4PairedAdapter is
         params[1] = abi.encode(pair.key.currency0, pair.key.currency1, address(this));
         positionManager.modifyLiquidities(abi.encode(actions, params), deadline);
 
-        stockReceived = IERC20(pair.stockToken).balanceOf(address(this)) - stockBefore;
-        usdgReceived = IERC20(pair.usdg).balanceOf(address(this)) - usdgBefore;
+        uint256 stockAfter = IERC20(pair.stockToken).balanceOf(address(this));
+        uint256 usdgAfter = IERC20(pair.usdg).balanceOf(address(this));
+        if (stockAfter < stockBefore || usdgAfter < usdgBefore) {
+            revert BalanceDeltaMismatch();
+        }
+        stockReceived = stockAfter - stockBefore;
+        usdgReceived = usdgAfter - usdgBefore;
         pair.tokenId = 0;
-        if (stockReceived != 0) IERC20(pair.stockToken).safeTransfer(vault, stockReceived);
-        if (usdgReceived != 0) IERC20(pair.usdg).safeTransfer(vault, usdgReceived);
+        if (stockReceived != 0) _pushExact(pair.stockToken, vault, stockReceived);
+        if (usdgReceived != 0) _pushExact(pair.usdg, vault, usdgReceived);
         emit PositionBurned(pairId, tokenId);
-    }
-
-    function refreshApprovals(bytes32 pairId, uint48 expiration) external onlyVault {
-        PairState storage pair = _pair(pairId);
-        if (expiration <= block.timestamp) revert InvalidConfiguration();
-        _approve(pair.stockToken, expiration);
-        _approve(pair.usdg, expiration);
-        emit ApprovalsRefreshed(pairId, expiration);
-    }
-
-    function revokeApprovals(bytes32 pairId) external onlyVault {
-        PairState storage pair = _pair(pairId);
-        _revoke(pair.stockToken);
-        _revoke(pair.usdg);
-        emit ApprovalsRevoked(pairId);
     }
 
     function _mint(
@@ -433,42 +456,83 @@ contract UniswapV4PairedAdapter is
         params[0] = abi.encode(pair.tokenId, uint256(liquidity), amount0Min, amount1Min, bytes(""));
         params[1] = abi.encode(pair.key.currency0, pair.key.currency1, address(this));
         positionManager.modifyLiquidities(abi.encode(actions, params), deadline);
-        stockReceived = IERC20(pair.stockToken).balanceOf(address(this)) - stockBefore;
-        usdgReceived = IERC20(pair.usdg).balanceOf(address(this)) - usdgBefore;
-        if (stockReceived != 0) IERC20(pair.stockToken).safeTransfer(vault, stockReceived);
-        if (usdgReceived != 0) IERC20(pair.usdg).safeTransfer(vault, usdgReceived);
+        uint256 stockAfter = IERC20(pair.stockToken).balanceOf(address(this));
+        uint256 usdgAfter = IERC20(pair.usdg).balanceOf(address(this));
+        if (stockAfter < stockBefore || usdgAfter < usdgBefore) {
+            revert BalanceDeltaMismatch();
+        }
+        stockReceived = stockAfter - stockBefore;
+        usdgReceived = usdgAfter - usdgBefore;
+        (uint256 amount0Received, uint256 amount1Received) =
+            _toPoolOrder(pair, stockReceived, usdgReceived);
+        if (amount0Received < amount0Min || amount1Received < amount1Min) {
+            revert SlippageExceeded();
+        }
+        if (stockReceived != 0) _pushExact(pair.stockToken, vault, stockReceived);
+        if (usdgReceived != 0) _pushExact(pair.usdg, vault, usdgReceived);
     }
 
-    function _decreaseMinimums(PairState storage pair, uint128 liquidity)
-        internal
-        view
-        returns (uint128 amount0Min, uint128 amount1Min)
-    {
-        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(PoolId.wrap(pair.poolId));
+    function _decreaseMinimums(
+        PairState storage pair,
+        uint128 liquidity,
+        uint160 referenceSqrtPriceX96
+    ) internal view returns (uint128 amount0Min, uint128 amount1Min) {
+        if (
+            referenceSqrtPriceX96 < TickMath.MIN_SQRT_PRICE
+                || referenceSqrtPriceX96 >= TickMath.MAX_SQRT_PRICE
+        ) revert InvalidReferencePrice();
         uint160 sqrtLower =
             TickMath.getSqrtPriceAtTick(TickMath.minUsableTick(pair.key.tickSpacing));
         uint160 sqrtUpper =
             TickMath.getSqrtPriceAtTick(TickMath.maxUsableTick(pair.key.tickSpacing));
         (uint256 expected0, uint256 expected1) =
-            VaultMath.amountsForLiquidity(sqrtPriceX96, sqrtLower, sqrtUpper, liquidity);
-        uint256 multiplier = BPS - pair.maxLiquiditySlippageBps;
+            VaultMath.amountsForLiquidity(referenceSqrtPriceX96, sqrtLower, sqrtUpper, liquidity);
+        uint256 multiplier = BPS - pair.removalToleranceBps;
         uint256 min0 = Math.mulDiv(expected0, multiplier, BPS);
         uint256 min1 = Math.mulDiv(expected1, multiplier, BPS);
-        _requireUint128(min0);
-        _requireUint128(min1);
-        return (uint128(min0), uint128(min1));
+        return (min0.toUint128(), min1.toUint128());
     }
 
-    function _approve(address token, uint48 expiration) internal {
-        IERC20(token).forceApprove(address(permit2), type(uint256).max);
-        permit2.approve(token, address(positionManager), type(uint160).max, expiration);
-        permit2.approve(token, address(universalRouter), type(uint160).max, expiration);
+    function _approveExact(address token, address spender, uint160 amount, uint256 deadline)
+        internal
+    {
+        IERC20(token).forceApprove(address(permit2), amount);
+        permit2.approve(token, spender, amount, deadline.toUint48());
     }
 
-    function _revoke(address token) internal {
-        permit2.approve(token, address(positionManager), 0, 0);
-        permit2.approve(token, address(universalRouter), 0, 0);
+    function _revokeExact(address token, address spender) internal {
+        permit2.approve(token, spender, 0, 0);
         IERC20(token).forceApprove(address(permit2), 0);
+        (uint160 amount,,) = permit2.allowance(address(this), token, spender);
+        if (amount != 0 || IERC20(token).allowance(address(this), address(permit2)) != 0) {
+            revert BalanceDeltaMismatch();
+        }
+    }
+
+    function _pullExact(address token, address from, uint256 amount) internal {
+        IERC20 asset = IERC20(token);
+        uint256 senderBefore = asset.balanceOf(from);
+        uint256 receiverBefore = asset.balanceOf(address(this));
+        asset.safeTransferFrom(from, address(this), amount);
+        uint256 senderAfter = asset.balanceOf(from);
+        uint256 receiverAfter = asset.balanceOf(address(this));
+        if (
+            senderAfter > senderBefore || receiverAfter < receiverBefore
+                || senderBefore - senderAfter != amount || receiverAfter - receiverBefore != amount
+        ) revert BalanceDeltaMismatch();
+    }
+
+    function _pushExact(address token, address to, uint256 amount) internal {
+        IERC20 asset = IERC20(token);
+        uint256 senderBefore = asset.balanceOf(address(this));
+        uint256 receiverBefore = asset.balanceOf(to);
+        asset.safeTransfer(to, amount);
+        uint256 senderAfter = asset.balanceOf(address(this));
+        uint256 receiverAfter = asset.balanceOf(to);
+        if (
+            senderAfter > senderBefore || receiverAfter < receiverBefore
+                || senderBefore - senderAfter != amount || receiverAfter - receiverBefore != amount
+        ) revert BalanceDeltaMismatch();
     }
 
     function _toPoolOrder(PairState storage pair, uint256 stock, uint256 usdg)
@@ -497,10 +561,6 @@ contract UniswapV4PairedAdapter is
 
     function _checkDeadline(uint256 deadline) internal view {
         if (deadline < block.timestamp) revert InvalidDeadline();
-    }
-
-    function _requireUint128(uint256 amount) internal pure {
-        if (amount > type(uint128).max) revert AmountOverflow();
     }
 
     uint256[42] private __gap;

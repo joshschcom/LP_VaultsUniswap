@@ -7,11 +7,13 @@ import {
 } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IPoolManager } from "@uniswap/v4-core/src/interfaces/IPoolManager.sol";
 import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
 import { PoolId, PoolIdLibrary } from "@uniswap/v4-core/src/types/PoolId.sol";
 import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 import { StateLibrary } from "@uniswap/v4-core/src/libraries/StateLibrary.sol";
+import { TickMath } from "@uniswap/v4-core/src/libraries/TickMath.sol";
 
 import { IAggregatorV3 } from "./interfaces/IAggregatorV3.sol";
 import { IStockToken } from "./interfaces/IStockToken.sol";
@@ -20,6 +22,8 @@ import { VaultMath } from "./libraries/VaultMath.sol";
 
 contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOracleGuard {
     using PoolIdLibrary for PoolKey;
+    using SafeCast for int256;
+    using SafeCast for uint256;
     using StateLibrary for IPoolManager;
 
     bytes32 public constant CONFIG_ROLE = keccak256("CONFIG_ROLE");
@@ -57,6 +61,7 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
     error PoolMismatch();
     error PoolUninitialized();
     error PriceDeviation(uint256 oraclePrice, uint256 poolPrice);
+    error InvalidReferencePrice();
 
     event FeedConfigured(bytes32 indexed pairId, address indexed stockToken, address stockFeed);
     event FeedEnabled(bytes32 indexed pairId, bool enabled);
@@ -84,6 +89,9 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
                 || address(config.stockFeed) == address(0) || config.poolId == bytes32(0)
                 || config.maxStaleness == 0 || config.maxPriceDeviationBps == 0
                 || config.maxPriceDeviationBps > BPS || config.stockToken == config.usdg
+                || config.stockDecimals > 36 || config.usdgDecimals > 36
+                || config.stockFeedDecimals > 36
+                || (!config.usdgFixedOne && config.usdgFeedDecimals > 36)
         ) revert InvalidConfiguration();
         if (!config.usdgFixedOne && address(config.usdgFeed) == address(0)) {
             revert InvalidConfiguration();
@@ -134,7 +142,7 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         external
         view
         override
-        returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg)
+        returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg, uint160 referenceSqrtPriceX96)
     {
         FeedConfig storage config = _feeds[pairId];
         (uint256 stockPrice, uint256 usdgPrice) = pricesUSD18(pairId);
@@ -152,9 +160,11 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
 
         uint256 oneStock = 10 ** config.stockDecimals;
         uint256 quotedUsdg =
-            VaultMath.quoteAtTick(tick, uint128(oneStock), config.stockToken, config.usdg);
+            VaultMath.quoteAtTick(tick, oneStock.toUint128(), config.stockToken, config.usdg);
         poolStockInUsdg = VaultMath.scaleToWad(quotedUsdg, config.usdgDecimals, Math.Rounding.Floor);
         oracleStockInUsdg = Math.mulDiv(stockPrice, 1e18, usdgPrice);
+        if (oracleStockInUsdg == 0) revert InvalidReferencePrice();
+        referenceSqrtPriceX96 = _referenceSqrtPriceX96(config, currency0, oracleStockInUsdg);
 
         uint256 difference = poolStockInUsdg > oracleStockInUsdg
             ? poolStockInUsdg - oracleStockInUsdg
@@ -180,7 +190,36 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         if (block.timestamp - updatedAt > maxStaleness) {
             revert StaleOracle(address(feed), updatedAt);
         }
-        normalized = VaultMath.scaleToWad(uint256(answer), decimals, Math.Rounding.Floor);
+        normalized = VaultMath.scaleToWad(answer.toUint256(), decimals, Math.Rounding.Floor);
+        if (normalized == 0) revert InvalidOracleAnswer(address(feed));
+    }
+
+    function _referenceSqrtPriceX96(
+        FeedConfig storage config,
+        address currency0,
+        uint256 oracleStockInUsdg
+    ) internal view returns (uint160 referenceSqrtPriceX96) {
+        uint256 stockScale = 10 ** config.stockDecimals;
+        uint256 usdgScale = 10 ** config.usdgDecimals;
+        uint256 rawRatioWad;
+        if (currency0 == config.stockToken) {
+            rawRatioWad = Math.mulDiv(oracleStockInUsdg, usdgScale, stockScale);
+        } else {
+            uint256 inversePriceWad = Math.mulDiv(1e18, 1e18, oracleStockInUsdg);
+            rawRatioWad = Math.mulDiv(inversePriceWad, stockScale, usdgScale);
+        }
+        if (rawRatioWad == 0) revert InvalidReferencePrice();
+
+        uint256 maxRawRatioWad = Math.mulDiv(type(uint256).max, 1e18, uint256(1) << 128);
+        if (rawRatioWad > maxRawRatioWad) revert InvalidReferencePrice();
+        uint256 ratioX128 = Math.mulDiv(rawRatioWad, uint256(1) << 128, 1e18);
+        if (ratioX128 == 0) revert InvalidReferencePrice();
+        uint256 sqrtPrice = Math.sqrt(ratioX128) << 32;
+        if (
+            sqrtPrice < TickMath.MIN_SQRT_PRICE || sqrtPrice >= TickMath.MAX_SQRT_PRICE
+                || sqrtPrice > type(uint160).max
+        ) revert InvalidReferencePrice();
+        referenceSqrtPriceX96 = sqrtPrice.toUint160();
     }
 
     function _checkSequencer(FeedConfig storage config) internal view {

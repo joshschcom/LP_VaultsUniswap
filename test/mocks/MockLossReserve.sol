@@ -9,6 +9,11 @@ import { IStrategyLossReserve } from "../../src/interfaces/IStrategyLossReserve.
 contract MockLossReserve is IStrategyLossReserve {
     using SafeERC20 for IERC20;
     mapping(bytes32 => mapping(address => uint256)) public balance;
+    uint256 public coverReportBonus;
+
+    function setCoverReportBonus(uint256 value) external {
+        coverReportBonus = value;
+    }
 
     function deposit(bytes32 pairId, address token, uint256 amount)
         external
@@ -25,9 +30,10 @@ contract MockLossReserve is IStrategyLossReserve {
         external
         returns (uint256 covered)
     {
-        covered = Math.min(requested, balance[pairId][token]);
-        balance[pairId][token] -= covered;
-        IERC20(token).safeTransfer(msg.sender, covered);
+        uint256 transferred = Math.min(requested, balance[pairId][token]);
+        balance[pairId][token] -= transferred;
+        IERC20(token).safeTransfer(msg.sender, transferred);
+        covered = transferred + coverReportBonus;
     }
 
     function available(bytes32 pairId, address token) external view returns (uint256) {

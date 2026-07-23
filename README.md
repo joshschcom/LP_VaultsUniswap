@@ -48,7 +48,9 @@ arbitrary protocol capacity ceiling while keeping a timelocked emergency control
 All four stateful contracts use initializer-based storage and are deployed behind
 transparent proxies. Keepers can checkpoint and rebalance; guardians can only move the
 system toward a paused/emergency state; configuration and proxy ownership belong to the
-timelock.
+timelock. Upgrade authority is an intentional governance trust boundary: the timelock
+must be controlled by the approved multisig policy, and upgrade/ownership events must be
+monitored.
 
 ## Deployment
 
@@ -61,10 +63,18 @@ timelock.
 3. Deploy the implementations and proxies with `DeployVaultSystem.s.sol`.
 4. Submit the calls represented by `ConfigureNvdaPair.s.sol` through governance. NVDA is
    registered with allocation and swaps paused.
-5. Refresh Permit2 approvals, seed the reserve with at most $100 of combined in-kind
-   value, smoke-test checkpoint/withdrawal, then stage allocation through the configured
-   side accounts. Initial reserve defaults allow at most $10 per event, $25 per UTC day,
-   and 50% of a realized deficit.
+5. Seed the reserve with at most $100 of combined in-kind value, smoke-test
+   checkpoint/withdrawal, then stage allocation through the configured side accounts.
+   Permit2 allowances are created for the exact amount of each liquidity or swap
+   operation and revoked before it returns. Initial reserve defaults allow at most $10
+   per event, $25 per UTC day, and 50% of a realized deficit.
+
+LP-backed withdrawals and guardian removals fail closed unless the Chainlink price is
+fresh and the zero-hook pool remains within the configured deviation. The current
+PoolManager exposes no native observation/TWAP surface for this zero-hook pool, so
+deployment operations must use private order flow and monitor the pool and oracle
+continuously; see the [Uniswap v4 core architecture](https://github.com/Uniswap/v4-core).
+Idle-only withdrawals remain available during oracle or pool incidents.
 
 The standard NVDA feed, Robinhood registry snapshot, and reviewed sequencer waiver are
 recorded. The template still leaves price bounds, feed staleness, settlement-swap size,

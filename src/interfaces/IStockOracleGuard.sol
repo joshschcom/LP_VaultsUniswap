@@ -12,5 +12,5 @@ interface IStockOracleGuard {
     function validatePoolPrice(bytes32 pairId, PoolKey calldata key)
         external
         view
-        returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg);
+        returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg, uint160 referenceSqrtPriceX96);
 }

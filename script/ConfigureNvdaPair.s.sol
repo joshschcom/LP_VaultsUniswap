@@ -96,7 +96,6 @@ contract ConfigureNvdaPair is Script {
         config.maxPairValueUSDG = uint128(vm.envOr("MAX_PAIR_VALUE_USDG", uint256(0)));
         config.maxSettlementSwapUSDG = uint128(vm.envUint("MAX_SETTLEMENT_SWAP_USDG"));
         config.maxCheckpointAge = uint64(vm.envUint("MAX_CHECKPOINT_AGE"));
-        config.minDeadlineDelay = uint32(vm.envOr("MIN_DEADLINE_DELAY", uint256(30)));
         config.maxDeadlineDelay = uint32(vm.envOr("MAX_DEADLINE_DELAY", uint256(300)));
         config.reserveFeeBps = uint16(vm.envOr("RESERVE_FEE_BPS", uint256(2000)));
         config.maxSwapSlippageBps = uint16(vm.envOr("MAX_SWAP_SLIPPAGE_BPS", uint256(100)));
@@ -110,7 +109,7 @@ contract ConfigureNvdaPair is Script {
 
     function _adapterConfig(address stock, address usdg, PoolKey memory key)
         internal
-        pure
+        view
         returns (IUniswapV4PairedAdapter.RegisterPairParams memory)
     {
         return IUniswapV4PairedAdapter.RegisterPairParams({
@@ -118,7 +117,7 @@ contract ConfigureNvdaPair is Script {
             usdg: usdg,
             poolKey: key,
             expectedPoolId: NVDA_POOL_ID,
-            maxLiquiditySlippageBps: 100
+            removalToleranceBps: uint16(vm.envOr("REMOVAL_TOLERANCE_BPS", uint256(400)))
         });
     }
 }

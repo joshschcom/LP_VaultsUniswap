@@ -7,6 +7,7 @@ import { IStockOracleGuard } from "../../src/interfaces/IStockOracleGuard.sol";
 contract MockOracleGuard is IStockOracleGuard {
     uint256 public stockPrice = 100e18;
     uint256 public usdgPrice = 1e18;
+    uint160 public referenceSqrtPriceX96 = uint160(1 << 96);
     bool public shouldRevert;
 
     function setPrices(uint256 stockPrice_, uint256 usdgPrice_) external {
@@ -18,13 +19,22 @@ contract MockOracleGuard is IStockOracleGuard {
         shouldRevert = value;
     }
 
+    function setReferenceSqrtPriceX96(uint160 value) external {
+        referenceSqrtPriceX96 = value;
+    }
+
     function pricesUSD18(bytes32) external view returns (uint256, uint256) {
         require(!shouldRevert, "ORACLE");
         return (stockPrice, usdgPrice);
     }
 
-    function validatePoolPrice(bytes32, PoolKey calldata) external view returns (uint256, uint256) {
+    function validatePoolPrice(bytes32, PoolKey calldata)
+        external
+        view
+        returns (uint256, uint256, uint160)
+    {
         require(!shouldRevert, "ORACLE");
-        return (stockPrice * 1e18 / usdgPrice, stockPrice * 1e18 / usdgPrice);
+        uint256 price = stockPrice * 1e18 / usdgPrice;
+        return (price, price, referenceSqrtPriceX96);
     }
 }

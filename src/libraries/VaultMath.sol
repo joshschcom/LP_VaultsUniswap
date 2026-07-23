@@ -11,6 +11,8 @@ library VaultMath {
     uint256 internal constant WAD = 1e18;
 
     error InvalidDecimals();
+    error InvalidPrice();
+    error IdenticalTokens();
 
     function scaleToWad(uint256 amount, uint8 decimals, Math.Rounding rounding)
         internal
@@ -39,6 +41,7 @@ library VaultMath {
         pure
         returns (uint256)
     {
+        if (priceUSD18 == 0) revert InvalidPrice();
         return Math.mulDiv(scaleToWad(amount, decimals, rounding), priceUSD18, WAD, rounding);
     }
 
@@ -48,6 +51,7 @@ library VaultMath {
         uint256 priceUSD18,
         Math.Rounding rounding
     ) internal pure returns (uint256) {
+        if (priceUSD18 == 0) revert InvalidPrice();
         uint256 wadAmount = Math.mulDiv(value, WAD, priceUSD18, rounding);
         return scaleFromWad(wadAmount, decimals, rounding);
     }
@@ -59,6 +63,7 @@ library VaultMath {
         pure
         returns (uint256 quoteAmount)
     {
+        if (baseToken == quoteToken) revert IdenticalTokens();
         uint160 sqrtRatioX96 = TickMath.getSqrtPriceAtTick(tick);
         if (sqrtRatioX96 <= type(uint128).max) {
             uint256 ratioX192 = uint256(sqrtRatioX96) * sqrtRatioX96;
@@ -73,17 +78,15 @@ library VaultMath {
         }
     }
 
-    function ceilDiv(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == 0) return 0;
-        return ((a - 1) / b) + 1;
-    }
-
     function amountsForLiquidity(
         uint160 sqrtPriceX96,
         uint160 sqrtPriceAX96,
         uint160 sqrtPriceBX96,
         uint128 liquidity
     ) internal pure returns (uint256 amount0, uint256 amount1) {
+        if (sqrtPriceX96 == 0 || sqrtPriceAX96 == 0 || sqrtPriceBX96 == 0) {
+            revert InvalidPrice();
+        }
         if (sqrtPriceAX96 > sqrtPriceBX96) {
             (sqrtPriceAX96, sqrtPriceBX96) = (sqrtPriceBX96, sqrtPriceAX96);
         }
