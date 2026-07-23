@@ -350,6 +350,7 @@ contract RobinhoodNVDAForkTest is Test {
                     maxPairValueUSDG: uint128(1_000e18),
                     maxSettlementSwapUSDG: uint128(100e18),
                     maxCheckpointAge: 1 hours,
+                    deprecatedMinDeadlineDelay: 0,
                     maxDeadlineDelay: 300,
                     reserveFeeBps: 2_000,
                     maxSwapSlippageBps: 100,

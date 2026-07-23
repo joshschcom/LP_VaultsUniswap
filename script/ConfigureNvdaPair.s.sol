@@ -96,6 +96,8 @@ contract ConfigureNvdaPair is Script {
         config.maxPairValueUSDG = uint128(vm.envOr("MAX_PAIR_VALUE_USDG", uint256(0)));
         config.maxSettlementSwapUSDG = uint128(vm.envUint("MAX_SETTLEMENT_SWAP_USDG"));
         config.maxCheckpointAge = uint64(vm.envUint("MAX_CHECKPOINT_AGE"));
+        // Retained only to preserve the proxy storage layout; minimum delays are disabled.
+        config.deprecatedMinDeadlineDelay = 0;
         config.maxDeadlineDelay = uint32(vm.envOr("MAX_DEADLINE_DELAY", uint256(300)));
         config.reserveFeeBps = uint16(vm.envOr("RESERVE_FEE_BPS", uint256(2000)));
         config.maxSwapSlippageBps = uint16(vm.envOr("MAX_SWAP_SLIPPAGE_BPS", uint256(100)));

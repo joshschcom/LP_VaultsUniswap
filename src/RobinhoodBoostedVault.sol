@@ -41,6 +41,8 @@ contract RobinhoodBoostedVault is
         uint128 maxPairValueUSDG;
         uint128 maxSettlementSwapUSDG;
         uint64 maxCheckpointAge;
+        // Retained only to preserve the proxy storage layout. Must remain zero.
+        uint32 deprecatedMinDeadlineDelay;
         uint32 maxDeadlineDelay;
         uint16 reserveFeeBps;
         uint16 maxSwapSlippageBps;
@@ -930,11 +932,11 @@ contract RobinhoodBoostedVault is
             pairId == bytes32(0) || config.stockToken == address(0) || config.usdg == address(0)
                 || config.stockAccount == address(0) || config.usdgAccount == address(0)
                 || config.stockToken == config.usdg || config.maxSettlementSwapUSDG == 0
-                || config.maxCheckpointAge == 0 || config.maxDeadlineDelay == 0
-                || config.maxDeadlineDelay > 30 minutes || config.reserveFeeBps > 5_000
-                || config.maxSwapSlippageBps == 0 || config.maxSwapSlippageBps > 2_000
-                || config.withdrawOverUnwindBps > 2_000 || config.stockDecimals > 36
-                || config.usdgDecimals > 36
+                || config.maxCheckpointAge == 0 || config.deprecatedMinDeadlineDelay != 0
+                || config.maxDeadlineDelay == 0 || config.maxDeadlineDelay > 30 minutes
+                || config.reserveFeeBps > 5_000 || config.maxSwapSlippageBps == 0
+                || config.maxSwapSlippageBps > 2_000 || config.withdrawOverUnwindBps > 2_000
+                || config.stockDecimals > 36 || config.usdgDecimals > 36
         ) revert InvalidConfiguration();
         if (config.stockDecimals != IERC20Metadata(config.stockToken).decimals()) {
             revert InvalidConfiguration();

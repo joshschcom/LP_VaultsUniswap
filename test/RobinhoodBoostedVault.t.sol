@@ -54,6 +54,7 @@ contract RobinhoodBoostedVaultTest is Test {
             maxPairValueUSDG: 0,
             maxSettlementSwapUSDG: uint128(25_000e18),
             maxCheckpointAge: 1 days,
+            deprecatedMinDeadlineDelay: 0,
             maxDeadlineDelay: 300,
             reserveFeeBps: 2_000,
             maxSwapSlippageBps: 100,
@@ -235,6 +236,14 @@ contract RobinhoodBoostedVaultTest is Test {
             vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp);
 
         assertEq(returned, 1e18);
+    }
+
+    function testDeprecatedMinimumDeadlineSlotMustRemainZero() external {
+        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        config.deprecatedMinDeadlineDelay = 1;
+
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.updatePairRisk(PAIR_ID, config);
     }
 
     function testFeeOnTransferToWithdrawalReceiverRevertsWithoutLedgerDrift() external {

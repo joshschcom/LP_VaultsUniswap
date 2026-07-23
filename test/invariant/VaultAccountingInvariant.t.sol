@@ -135,6 +135,7 @@ contract VaultAccountingInvariant is StdInvariant, Test {
                 maxPairValueUSDG: type(uint128).max,
                 maxSettlementSwapUSDG: type(uint128).max,
                 maxCheckpointAge: 1 days,
+                deprecatedMinDeadlineDelay: 0,
                 maxDeadlineDelay: 300,
                 reserveFeeBps: 2_000,
                 maxSwapSlippageBps: 100,
