@@ -1,0 +1,9 @@
+{
+  "forge-std": "foundry-rs/forge-std@v1.9.7",
+  "openzeppelin-contracts": "OpenZeppelin/openzeppelin-contracts@v5.3.0",
+  "openzeppelin-contracts-upgradeable": "OpenZeppelin/openzeppelin-contracts-upgradeable@v5.3.0",
+  "permit2": "Uniswap/permit2@cc56ad0f3439c502c246fc5cfcc3db92bb8b7219",
+  "universal-router": "Uniswap/universal-router@67553d8b067249dd7841d9d1b0eb2997b19d4bf9",
+  "v4-core": "Uniswap/v4-core@e50237c43811bd9b526eff40f26772152a42daba",
+  "v4-periphery": "Uniswap/v4-periphery@60cd93803ac2b7fa65fd6cd351fd5fd4cc8c9db5"
+}

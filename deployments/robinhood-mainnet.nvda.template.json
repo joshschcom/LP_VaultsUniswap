@@ -1,0 +1,61 @@
+{
+  "status": "TODO_DEPLOYMENT_VERIFY",
+  "chainId": 4663,
+  "researchCheckpoint": "2026-07-23",
+  "forkVerification": {
+    "blockNumber": 17091638,
+    "feedUpdatedAt": 1784790068,
+    "feedAnswer": "21114499999",
+    "feedDecimals": 8
+  },
+  "uniswap": {
+    "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "positionManager": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
+    "stateView": "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b",
+    "universalRouter": "0x8876789976decbfcbbbe364623c63652db8c0904",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+  },
+  "pair": {
+    "stockName": "NVIDIA • Robinhood Token",
+    "stockSymbol": "NVDA",
+    "uiMultiplier": "1000000000000000000",
+    "newUiMultiplier": "1000000000000000000",
+    "multiplierEffectiveAt": 0,
+    "stockToken": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "poolId": "0x3bb34a44f1b2b5f32c034c38a53065a521a47b199700fa9bd19d60985ff24bf1",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "stockPriceFeed": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
+    "stockPriceFeedDescription": "RHNVDA / USD",
+    "svrStockPriceFeed": "0xCF169363636D73dbBf77733629CB38919d14232d",
+    "useSvrStockPriceFeed": false,
+    "stockPriceBoundsUSD18": {
+      "min": "TODO_DEPLOYMENT_VERIFY",
+      "max": "TODO_DEPLOYMENT_VERIFY"
+    },
+    "maxStockFeedAgeSeconds": "TODO_DEPLOYMENT_VERIFY",
+    "sequencerFeed": "0x0000000000000000000000000000000000000000",
+    "sequencerGracePeriodSeconds": 3600,
+    "sequencerWaiverApproved": true,
+    "sequencerWaiverReason": "No Robinhood-specific proxy is published in Chainlink's official L2 Sequencer Uptime Feed registry; the Arbitrum One proxy is not deployed on chain 4663."
+  },
+  "riskPolicy": {
+    "maxPairValueUSDG18": "0",
+    "aggregateUsdgDepositCap": "0",
+    "zeroCapSemantics": "disabled",
+    "capacityControl": "Only configured stock-side and USDG-side accounts may deposit; optional nonzero circuit-breaker caps remain governance-configurable.",
+    "maxSettlementSwapUSDG18": "TODO_DEPLOYMENT_VERIFY",
+    "reserve": {
+      "initialGovernanceSeedMaxUSDG18": "100000000000000000000",
+      "maxUsePerTxUSDG18": "10000000000000000000",
+      "dailyCapUSDG18": "25000000000000000000",
+      "maxCoverageBps": 5000,
+      "feeShareBps": 2000,
+      "reviewAbsoluteLimitsAsFeeReserveGrows": true
+    }
+  },
+  "registrySnapshotSha256": "0x184c4c5d74f40ac6afe8f7a035a683d874b2a81a12a7ac95a6c15cb76e60641a",
+  "manifestSha256": "TODO_GENERATE_AFTER_VERIFICATION"
+}
