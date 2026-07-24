@@ -31,28 +31,29 @@ contract OperateVaultTimelock is Script {
             return;
         }
 
-        address actor = msg.sender;
+        address actor = vm.envAddress("ACTION_ACTOR");
+        require(actor != address(0), "ZERO_ACTION_ACTOR");
 
         if (action == keccak256("schedule")) {
             uint256 delay = vm.envOr("TIMELOCK_DELAY", timelock.getMinDelay());
             require(delay >= timelock.getMinDelay(), "DELAY_BELOW_MINIMUM");
             require(timelock.hasRole(timelock.PROPOSER_ROLE(), actor), "ACTOR_NOT_PROPOSER");
 
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             timelock.schedule(target, value, data, predecessor, salt, delay);
             vm.stopBroadcast();
         } else if (action == keccak256("execute")) {
             require(timelock.hasRole(timelock.EXECUTOR_ROLE(), actor), "ACTOR_NOT_EXECUTOR");
             require(timelock.isOperationReady(operationId), "OPERATION_NOT_READY");
 
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             timelock.execute{ value: value }(target, value, data, predecessor, salt);
             vm.stopBroadcast();
         } else if (action == keccak256("cancel")) {
             require(timelock.hasRole(timelock.CANCELLER_ROLE(), actor), "ACTOR_NOT_CANCELLER");
             require(timelock.isOperationPending(operationId), "OPERATION_NOT_PENDING");
 
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             timelock.cancel(operationId);
             vm.stopBroadcast();
         } else {

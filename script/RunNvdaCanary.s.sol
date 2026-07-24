@@ -43,18 +43,19 @@ contract RunNvdaCanary is Script {
             return;
         }
 
-        address actor = msg.sender;
+        address actor = vm.envAddress("ACTION_ACTOR");
+        require(actor != address(0), "ZERO_ACTION_ACTOR");
 
         if (action == keccak256("enable-allocation")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             vault.setPairPause(PAIR_ID, false, true, false);
             vm.stopBroadcast();
         } else if (action == keccak256("enable-swaps")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             vault.setPairPause(PAIR_ID, false, false, false);
             vm.stopBroadcast();
         } else if (action == keccak256("pause")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             vault.setPairPause(PAIR_ID, true, true, false);
             vm.stopBroadcast();
         } else if (action == keccak256("deposit-stock")) {
@@ -66,11 +67,11 @@ contract RunNvdaCanary is Script {
         } else if (action == keccak256("fund-reserve-usdg")) {
             _fundReserve(vault, actor, USDG, "CANARY_MAX_RESERVE_USDG_AMOUNT");
         } else if (action == keccak256("rebalance")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             vault.rebalance(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
         } else if (action == keccak256("checkpoint")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             vault.checkpoint(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
         } else if (action == keccak256("withdraw-stock")) {
@@ -78,11 +79,11 @@ contract RunNvdaCanary is Script {
         } else if (action == keccak256("withdraw-usdg")) {
             _withdraw(vault, actor, config.usdgAccount, USDG, "CANARY_MAX_USDG_AMOUNT", config);
         } else if (action == keccak256("burn-position")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             vault.burnEmptyPosition(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
         } else if (action == keccak256("pause-reserve")) {
-            vm.startBroadcast();
+            vm.startBroadcast(actor);
             StrategyLossReserve(address(vault.lossReserve())).setPaused(PAIR_ID, true);
             vm.stopBroadcast();
         } else if (action == keccak256("withdraw-reserve-stock")) {
@@ -109,7 +110,7 @@ contract RunNvdaCanary is Script {
         require(amount != 0 && maxAmount != 0 && amount <= maxAmount, "CANARY_AMOUNT_LIMIT");
         require(IERC20(token).balanceOf(actor) >= amount, "INSUFFICIENT_SIDE_BALANCE");
 
-        vm.startBroadcast();
+        vm.startBroadcast(actor);
         IERC20(token).forceApprove(address(vault), amount);
         uint256 deposited = vault.depositForPair(PAIR_ID, token, amount);
         IERC20(token).forceApprove(address(vault), 0);
@@ -130,7 +131,7 @@ contract RunNvdaCanary is Script {
         require(IERC20(token).balanceOf(actor) >= amount, "INSUFFICIENT_FUNDER_BALANCE");
         StrategyLossReserve reserve = StrategyLossReserve(address(vault.lossReserve()));
 
-        vm.startBroadcast();
+        vm.startBroadcast(actor);
         IERC20(token).forceApprove(address(reserve), amount);
         uint256 deposited = reserve.deposit(PAIR_ID, token, amount);
         IERC20(token).forceApprove(address(reserve), 0);
@@ -155,7 +156,7 @@ contract RunNvdaCanary is Script {
         address receiver = vm.envOr("RECEIVER", actor);
         require(receiver != address(0), "RECEIVER_ZERO");
 
-        vm.startBroadcast();
+        vm.startBroadcast(actor);
         (uint256 returned, uint256 realizedLoss) =
             vault.withdrawForSide(PAIR_ID, token, amount, receiver, _deadline(config));
         vm.stopBroadcast();
@@ -179,7 +180,7 @@ contract RunNvdaCanary is Script {
         address receiver = vm.envOr("RECEIVER", actor);
         require(receiver != address(0), "RECEIVER_ZERO");
 
-        vm.startBroadcast();
+        vm.startBroadcast(actor);
         reserve.withdrawPausedReserve(PAIR_ID, token, receiver, amount);
         vm.stopBroadcast();
     }

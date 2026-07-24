@@ -16,12 +16,15 @@ contract DeployVaultTimelock is Script {
     function run() external returns (TimelockController timelock) {
         if (block.chainid != ROBINHOOD_CHAIN_ID) revert("WRONG_CHAIN");
 
-        address deployer = msg.sender;
-        address proposer = vm.envOr("TIMELOCK_PROPOSER", deployer);
-        address executor = vm.envOr("TIMELOCK_EXECUTOR", proposer);
+        address deployer = vm.envAddress("DEPLOYER");
+        address proposer = vm.envAddress("TIMELOCK_PROPOSER");
+        address executor = vm.envAddress("TIMELOCK_EXECUTOR");
         uint256 minDelay = vm.envUint("TIMELOCK_MIN_DELAY");
 
-        require(proposer != address(0) && executor != address(0), "ZERO_TIMELOCK_ACTOR");
+        require(
+            deployer != address(0) && proposer != address(0) && executor != address(0),
+            "ZERO_TIMELOCK_ACTOR"
+        );
         require(
             minDelay >= MIN_INITIAL_DELAY && minDelay <= MAX_INITIAL_DELAY, "INVALID_TIMELOCK_DELAY"
         );
@@ -31,7 +34,7 @@ contract DeployVaultTimelock is Script {
         address[] memory executors = new address[](1);
         executors[0] = executor;
 
-        vm.startBroadcast();
+        vm.startBroadcast(deployer);
         timelock = new TimelockController(minDelay, proposers, executors, address(0));
         vm.stopBroadcast();
 

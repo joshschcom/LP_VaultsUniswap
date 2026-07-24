@@ -85,7 +85,9 @@ contract ConfigureNvdaPair is Script {
             return;
         }
 
-        vm.startBroadcast();
+        address governanceActor = vm.envAddress("GOVERNANCE_ACTOR");
+        require(governanceActor != address(0), "ZERO_GOVERNANCE_ACTOR");
+        vm.startBroadcast(governanceActor);
         oracle.configurePair(pairId, oracleConfig);
         reserve.configurePair(pairId, reserveConfig);
         vault.setAggregateUsdgDepositCap(usdg, aggregateCap);

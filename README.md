@@ -62,16 +62,23 @@ monitored.
    delay and migrate those roles to the approved multisig policy.
 
    ```bash
-   TIMELOCK_MIN_DELAY=3600 forge script \
+   DEPLOYER=0x... \
+   TIMELOCK_PROPOSER=0x... \
+   TIMELOCK_EXECUTOR=0x... \
+   TIMELOCK_MIN_DELAY=3600 \
+   forge script \
      script/DeployVaultTimelock.s.sol:DeployVaultTimelock \
      --account "$FOUNDRY_ACCOUNT" \
+     --sender "$DEPLOYER" \
      --rpc-url "$ROBINHOOD_RPC_URL"
    ```
 
    Run this as a simulation first, review the predicted address and role assertions, and
    add `--broadcast` only for the reviewed mainnet execution. Use an encrypted Foundry
    keystore or hardware wallet; deployment and operation scripts do not accept plaintext
-   private-key environment variables.
+   private-key environment variables. Every mutating script also requires the public
+   broadcaster address (`DEPLOYER`, `ACTION_ACTOR`, or `GOVERNANCE_ACTOR`) and binds
+   generated transactions to that address.
 2. Copy and verify
    [`deployments/robinhood-mainnet.nvda.template.json`](./deployments/robinhood-mainnet.nvda.template.json).
 3. Run `PreflightRobinhood.s.sol` against a pinned Robinhood fork. Supply the detached
