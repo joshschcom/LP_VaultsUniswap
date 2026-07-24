@@ -54,19 +54,36 @@ monitored.
 
 ## Deployment
 
-1. Copy and verify
+1. Deploy the standard OpenZeppelin `TimelockController` with
+   `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
+   admin bypass. For the standalone canary, the deployer EOA may initially be both
+   proposer/canceller and executor, but `TIMELOCK_MIN_DELAY` must be at least one hour.
+   Before accepting material production TVL, use timelocked self-calls to increase the
+   delay and migrate those roles to the approved multisig policy.
+
+   ```bash
+   TIMELOCK_MIN_DELAY=3600 forge script \
+     script/DeployVaultTimelock.s.sol:DeployVaultTimelock \
+     --rpc-url "$ROBINHOOD_RPC_URL"
+   ```
+
+   Run this as a simulation first, review the predicted address and role assertions, and
+   add `--broadcast` only for the reviewed mainnet execution.
+2. Copy and verify
    [`deployments/robinhood-mainnet.nvda.template.json`](./deployments/robinhood-mainnet.nvda.template.json).
-2. Run `PreflightRobinhood.s.sol` against a pinned Robinhood fork. Supply the detached
+3. Run `PreflightRobinhood.s.sol` against a pinned Robinhood fork. Supply the detached
    registry-snapshot and manifest SHA-256 digests. It fails on missing code or hashes,
    token/oracle mismatch, stale or implausible prices, missing sequencer policy, a wrong
    PoolId, an uninitialized pool, or disagreement between PoolManager and StateView.
-3. Deploy the implementations and proxies with `DeployVaultSystem.s.sol`.
-4. For the standalone mainnet canary, run `ConfigureNvdaPair.s.sol` with
+4. Deploy the implementations and proxies with `DeployVaultSystem.s.sol`, using the
+   deployed timelock address as `TIMELOCK`.
+5. For the standalone mainnet canary, run `ConfigureNvdaPair.s.sol` with
    `PAIR_LABEL=NVDA/USDG/CANARY`, temporary EOA side accounts, and deliberately small
    nonzero pair and aggregate caps. The pair is registered with allocation and swaps
-   paused. The script prints four ordered timelock payloads by default; direct EOA
-   execution is disabled unless `DIRECT_CONFIG_BROADCAST=true` is explicitly set.
-5. Use `RunNvdaCanary.s.sol` one action at a time: inspect `status`, enable allocation,
+   paused. The script prints four ordered timelock payloads by default. Schedule, inspect,
+   and execute each payload with `OperateVaultTimelock.s.sol`; direct EOA configuration
+   cannot bypass timelock ownership.
+6. Use `RunNvdaCanary.s.sol` one action at a time: inspect `status`, enable allocation,
    deposit each side within explicit `CANARY_MAX_*_AMOUNT` limits, optionally fund each
    reserve side within separate `CANARY_MAX_RESERVE_*_AMOUNT` limits, rebalance,
    checkpoint, withdraw both sides, optionally burn the empty position NFT, pause and
@@ -74,14 +91,15 @@ monitored.
    Use the governance, keeper, stock-side, USDG-side, reserve-admin, or funder key only
    for the action authorized to that address. Enable settlement swaps only as a separate,
    deliberate canary action. Set `PAYLOAD_ONLY=true` for vault/reserve governance actions
-   owned by the timelock.
-6. Seed the reserve with at most $100 of combined in-kind value during the smoke test.
+   owned by the timelock, then schedule and execute the printed call through
+   `OperateVaultTimelock.s.sol`.
+7. Seed the reserve with at most $100 of combined in-kind value during the smoke test.
    Keep the canary drained and paused after the test.
-7. After the Peridot market contracts are ready, deploy the boosted pUSDG delegator,
+8. After the Peridot market contracts are ready, deploy the boosted pUSDG delegator,
    register the distinct `PAIR_LABEL=NVDA/USDG` production pair with that delegator as
    `USDG_SIDE_ACCOUNT`, configure the pToken while it remains paused, unpause vault
    allocation through governance, and only then enable the pToken's vault integration.
-8. Stage production allocation through the configured side accounts.
+9. Stage production allocation through the configured side accounts.
    Permit2 allowances are created for the exact amount of each liquidity or swap
    operation and revoked before it returns. Initial reserve defaults allow at most $10
    per event, $25 per UTC day, and 50% of a realized deficit.

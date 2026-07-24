@@ -8,6 +8,17 @@
     "feedAnswer": "21114499999",
     "feedDecimals": 8
   },
+  "governance": {
+    "timelock": "TODO_DEPLOY",
+    "minimumDelaySeconds": 3600,
+    "proposer": "TODO_DEPLOYER_EOA",
+    "executor": "TODO_DEPLOYER_EOA",
+    "externalAdmin": "0x0000000000000000000000000000000000000000",
+    "productionHardening": [
+      "Increase the delay through a timelocked self-call before accepting material TVL.",
+      "Grant proposer, executor, and canceller roles to the approved multisig policy before revoking the canary EOA."
+    ]
+  },
   "uniswap": {
     "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
     "positionManager": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
@@ -65,10 +76,12 @@
     "canaryUsesTemporaryEoaSideAccounts": true,
     "productionUsdgSideAccount": "TODO_PUSDG_DELEGATOR",
     "requirements": [
+      "Deploy the self-administered vault timelock before deploying the vault proxies.",
       "Register the canary and production labels as distinct pair IDs.",
       "Keep both pairs paused at registration.",
       "Drain and pause the canary before configuring the production pair.",
-      "Validate productionUsdgSideAccount through vault.sideAccount before enabling boost."
+      "Validate productionUsdgSideAccount through vault.sideAccount before enabling boost.",
+      "Harden timelock delay and actor roles before accepting material production TVL."
     ]
   },
   "registrySnapshotSha256": "0x184c4c5d74f40ac6afe8f7a035a683d874b2a81a12a7ac95a6c15cb76e60641a",
