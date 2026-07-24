@@ -185,6 +185,27 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
     }
 
+    function testSingleSidedPositionCanSettleUsingCounterPrincipal() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Model a full-range position that has migrated entirely into USDG while
+        // preserving the pair's oracle value.
+        usdg.mint(address(adapter), 1_000e6);
+        adapter.setPosition(PAIR_ID, 0, 2_000e6);
+
+        vm.prank(stockAccount);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 10e18, receiver, block.timestamp + 60);
+
+        assertGt(returned, 9.9e18);
+        assertLt(returned, 10e18);
+        assertGt(loss, 0);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 0);
+        assertEq(stock.balanceOf(receiver), returned);
+    }
+
     function testStaleCheckpointIsRefreshedInsideLPWithdrawal() external {
         _depositPair(10e18, 1_000e6);
         vm.prank(keeper);
@@ -251,6 +272,30 @@ contract RobinhoodBoostedVaultTest is Test {
 
         vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
         vault.updatePairRisk(PAIR_ID, config);
+    }
+
+    function testSettlementSlippageCannotExceedFivePercent() external {
+        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        config.maxSwapSlippageBps = 501;
+
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.updatePairRisk(PAIR_ID, config);
+    }
+
+    function testRegistrationRequiresRemovalToleranceAboveOracleDeviation() external {
+        bytes32 secondPair = keccak256("SECOND");
+        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        IUniswapV4PairedAdapter.RegisterPairParams memory adapterConfig =
+            IUniswapV4PairedAdapter.RegisterPairParams({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                poolKey: _poolKey(),
+                expectedPoolId: keccak256("pool"),
+                removalToleranceBps: 399
+            });
+
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.registerPair(secondPair, config, adapterConfig);
     }
 
     function testFeeOnTransferToWithdrawalReceiverRevertsWithoutLedgerDrift() external {

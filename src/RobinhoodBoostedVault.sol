@@ -32,6 +32,7 @@ contract RobinhoodBoostedVault is
     bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     uint256 internal constant BPS = 10_000;
+    uint256 internal constant REMOVAL_OPERATIONAL_BUFFER_BPS = 100;
 
     struct PairConfig {
         address stockToken;
@@ -179,6 +180,10 @@ contract RobinhoodBoostedVault is
 
         oracleGuard.pricesUSD18(pairId);
         oracleGuard.validatePoolPrice(pairId, adapterConfig.poolKey);
+        if (
+            uint256(adapterConfig.removalToleranceBps)
+                < uint256(oracleGuard.maxPriceDeviationBps(pairId)) + REMOVAL_OPERATIONAL_BUFFER_BPS
+        ) revert InvalidConfiguration();
         liquidityAdapter.registerPair(pairId, adapterConfig);
 
         _pairConfig[pairId] = config;
@@ -714,14 +719,6 @@ contract RobinhoodBoostedVault is
         uint256 counterIdle = stockSide ? pairLedger.usdgIdle : pairLedger.stockIdle;
         if (counterIdle == 0) return;
 
-        IUniswapV4PairedAdapter.PositionState memory position =
-            liquidityAdapter.positionState(pairId);
-        uint256 counterAssets =
-            counterIdle + (stockSide ? position.usdgAmount : position.stockAmount);
-        uint256 counterPrincipal = stockSide ? pairLedger.usdgPrincipal : pairLedger.stockPrincipal;
-        if (counterAssets <= counterPrincipal) return;
-        uint256 counterSurplus = counterAssets - counterPrincipal;
-        uint256 amountIn = Math.min(counterIdle, counterSurplus);
         uint256 remainingTargetIdle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
         uint256 remainingDeficit =
             requested > remainingTargetIdle ? requested - remainingTargetIdle : 0;
@@ -739,7 +736,13 @@ contract RobinhoodBoostedVault is
             : VaultMath.amountFromValueUSD18(
                 remainingDeficitValue, config.stockDecimals, stockPrice, Math.Rounding.Ceil
             );
-        amountIn = Math.min(amountIn, counterNeeded);
+        // Gross up for the configured execution tolerance so the oracle-bounded
+        // minimum output can satisfy the entire remaining claim. Counter principal
+        // may be converted here: post-swap loss recognition proportionally adjusts
+        // both side claims before any assets leave the vault.
+        counterNeeded =
+            Math.mulDiv(counterNeeded, BPS, BPS - config.maxSwapSlippageBps, Math.Rounding.Ceil);
+        uint256 amountIn = Math.min(counterIdle, counterNeeded);
         amountIn = _capSwapAmount(config, stockSide, amountIn, stockPrice, usdgPrice);
         if (amountIn == 0) return;
 
@@ -763,6 +766,9 @@ contract RobinhoodBoostedVault is
         uint256 inputBalanceBefore = IERC20(tokenIn).balanceOf(address(this));
         address outputToken = stockSide ? config.stockToken : config.usdg;
         uint256 outputBalanceBefore = IERC20(outputToken).balanceOf(address(this));
+        // Revalidate immediately before the external swap. This catches a pool that
+        // was moved outside the oracle deviation bound by any preceding external call.
+        oracleGuard.validatePoolPrice(pairId, liquidityAdapter.poolKey(pairId));
         IERC20(tokenIn).forceApprove(address(liquidityAdapter), amountIn);
         (uint256 used, uint256 output) =
             liquidityAdapter.swapExactInput(pairId, tokenIn, amountIn, minOut, deadline);
@@ -960,7 +966,7 @@ contract RobinhoodBoostedVault is
                 || config.maxCheckpointAge == 0 || config.deprecatedMinDeadlineDelay != 0
                 || config.maxDeadlineDelay == 0 || config.maxDeadlineDelay > 30 minutes
                 || config.reserveFeeBps > 5_000 || config.maxSwapSlippageBps == 0
-                || config.maxSwapSlippageBps > 2_000 || config.withdrawOverUnwindBps > 2_000
+                || config.maxSwapSlippageBps > 500 || config.withdrawOverUnwindBps > 2_000
                 || config.stockDecimals > 36 || config.usdgDecimals > 36
         ) revert InvalidConfiguration();
         if (config.stockDecimals != IERC20Metadata(config.stockToken).decimals()) {

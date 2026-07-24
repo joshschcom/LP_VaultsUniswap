@@ -28,6 +28,7 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
 
     bytes32 public constant CONFIG_ROLE = keccak256("CONFIG_ROLE");
     uint256 internal constant BPS = 10_000;
+    uint64 public constant MIN_SEQUENCER_GRACE_PERIOD = 1 hours;
 
     struct FeedConfig {
         address stockToken;
@@ -63,7 +64,7 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
     error PriceDeviation(uint256 oraclePrice, uint256 poolPrice);
     error InvalidReferencePrice();
 
-    event FeedConfigured(bytes32 indexed pairId, address indexed stockToken, address stockFeed);
+    event FeedConfigured(bytes32 indexed pairId, FeedConfig config);
     event FeedEnabled(bytes32 indexed pairId, bool enabled);
 
     constructor() {
@@ -92,6 +93,8 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
                 || config.stockDecimals > 36 || config.usdgDecimals > 36
                 || config.stockFeedDecimals > 36
                 || (!config.usdgFixedOne && config.usdgFeedDecimals > 36)
+                || (address(config.sequencerFeed) != address(0)
+                    && config.sequencerGracePeriod < MIN_SEQUENCER_GRACE_PERIOD)
         ) revert InvalidConfiguration();
         if (!config.usdgFixedOne && address(config.usdgFeed) == address(0)) {
             revert InvalidConfiguration();
@@ -106,9 +109,13 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         if (!config.usdgFixedOne && config.usdgFeedDecimals != config.usdgFeed.decimals()) {
             revert InvalidConfiguration();
         }
+        try IStockToken(config.stockToken).oraclePaused() returns (bool) { }
+        catch {
+            revert InvalidConfiguration();
+        }
 
         _feeds[pairId] = config;
-        emit FeedConfigured(pairId, config.stockToken, address(config.stockFeed));
+        emit FeedConfigured(pairId, config);
     }
 
     function setEnabled(bytes32 pairId, bool enabled) external onlyRole(CONFIG_ROLE) {
@@ -121,6 +128,12 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         return _feeds[pairId];
     }
 
+    function maxPriceDeviationBps(bytes32 pairId) external view override returns (uint16) {
+        FeedConfig storage config = _feeds[pairId];
+        if (config.stockToken == address(0)) revert PairNotEnabled();
+        return config.maxPriceDeviationBps;
+    }
+
     function pricesUSD18(bytes32 pairId)
         public
         view
@@ -129,6 +142,9 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
     {
         FeedConfig storage config = _feeds[pairId];
         if (!config.enabled) revert PairNotEnabled();
+        // Deliberately fail closed for LP-backed operations. Idle withdrawals do not
+        // call the guard, but neither normal nor guardian liquidity removal may bypass
+        // a stock-token oracle pause.
         if (IStockToken(config.stockToken).oraclePaused()) revert StockOraclePaused();
         _checkSequencer(config);
 

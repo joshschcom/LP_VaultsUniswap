@@ -87,10 +87,14 @@ monitored.
    per event, $25 per UTC day, and 50% of a realized deficit.
 
 LP-backed withdrawals and guardian removals fail closed unless the Chainlink price is
-fresh and the zero-hook pool remains within the configured deviation. The current
-PoolManager exposes no native observation/TWAP surface for this zero-hook pool, so
-deployment operations must use private order flow and monitor the pool and oracle
-continuously; see the [Uniswap v4 core architecture](https://github.com/Uniswap/v4-core).
+fresh, the stock token oracle is unpaused, any configured sequencer feed is healthy and
+past its grace period, and the zero-hook pool remains within the configured deviation.
+Guardian emergency mode cannot bypass these checks. The current PoolManager exposes no
+native observation/TWAP surface for this zero-hook pool, so deployment operations must
+use private order flow and monitor the pool and oracle continuously; see the
+[Uniswap v4 core architecture](https://github.com/Uniswap/v4-core). Settlement swaps
+also enforce an oracle-derived per-hop execution-price floor and a bounded size, but
+public submission retains residual sandwich risk inside the configured tolerance.
 Idle-only withdrawals remain available during oracle or pool incidents.
 
 The standard NVDA feed, Robinhood registry snapshot, and reviewed sequencer waiver are

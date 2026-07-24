@@ -41,6 +41,7 @@ contract UniswapV4PairedAdapter is
     using StateLibrary for IPoolManager;
 
     uint256 internal constant BPS = 10_000;
+    uint256 internal constant PRICE_X36 = 1e36;
     uint256 internal constant MAX_REMOVAL_TOLERANCE_BPS = 2_000;
 
     struct PairState {
@@ -318,6 +319,8 @@ contract UniswapV4PairedAdapter is
         if (amountIn == 0 || minAmountOut == 0) revert InvalidConfiguration();
         uint128 amountIn128 = amountIn.toUint128();
         uint128 minAmountOut128 = minAmountOut.toUint128();
+        uint256 minHopPriceX36 = Math.mulDiv(minAmountOut, PRICE_X36, amountIn);
+        if (minHopPriceX36 == 0) revert InvalidConfiguration();
 
         address tokenOut = tokenIn == pair.stockToken ? pair.usdg : pair.stockToken;
         uint256 inputStart = IERC20(tokenIn).balanceOf(address(this));
@@ -338,7 +341,9 @@ contract UniswapV4PairedAdapter is
                 zeroForOne: zeroForOne,
                 amountIn: amountIn128,
                 amountOutMinimum: minAmountOut128,
-                minHopPriceX36: 0,
+                // `minAmountOut` is derived by the vault from fresh oracle prices.
+                // Enforce that same raw output/input floor inside the swap hop.
+                minHopPriceX36: minHopPriceX36,
                 hookData: bytes("")
             })
         );
@@ -562,7 +567,7 @@ contract UniswapV4PairedAdapter is
     }
 
     function _checkDeadline(uint256 deadline) internal view {
-        if (deadline < block.timestamp) revert InvalidDeadline();
+        if (deadline < block.timestamp || deadline > type(uint48).max) revert InvalidDeadline();
     }
 
     uint256[42] private __gap;

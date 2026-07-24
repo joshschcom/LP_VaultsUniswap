@@ -8,6 +8,7 @@ contract MockOracleGuard is IStockOracleGuard {
     uint256 public stockPrice = 100e18;
     uint256 public usdgPrice = 1e18;
     uint160 public referenceSqrtPriceX96 = uint160(1 << 96);
+    uint16 public deviationBps = 300;
     bool public shouldRevert;
 
     function setPrices(uint256 stockPrice_, uint256 usdgPrice_) external {
@@ -21,6 +22,14 @@ contract MockOracleGuard is IStockOracleGuard {
 
     function setReferenceSqrtPriceX96(uint160 value) external {
         referenceSqrtPriceX96 = value;
+    }
+
+    function setMaxPriceDeviationBps(uint16 value) external {
+        deviationBps = value;
+    }
+
+    function maxPriceDeviationBps(bytes32) external view returns (uint16) {
+        return deviationBps;
     }
 
     function pricesUSD18(bytes32) external view returns (uint256, uint256) {

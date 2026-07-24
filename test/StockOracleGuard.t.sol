@@ -16,6 +16,12 @@ import { MockERC20 } from "./mocks/MockERC20.sol";
 import { MockAggregator } from "./mocks/MockAggregator.sol";
 import { MockPoolManagerState } from "./mocks/MockUniswapComponents.sol";
 
+contract MetadataOnlyToken {
+    function decimals() external pure returns (uint8) {
+        return 18;
+    }
+}
+
 contract StockOracleGuardTest is Test {
     using PoolIdLibrary for PoolKey;
 
@@ -57,6 +63,10 @@ contract StockOracleGuardTest is Test {
         stock.setOraclePaused(true);
         vm.expectRevert(StockOracleGuard.StockOraclePaused.selector);
         guard.pricesUSD18(PAIR_ID);
+    }
+
+    function testConfiguredDeviationIsExposedForRemovalSafetyChecks() external view {
+        assertEq(guard.maxPriceDeviationBps(PAIR_ID), 500);
     }
 
     function testStaleRoundIsRejected() external {
@@ -114,6 +124,25 @@ contract StockOracleGuardTest is Test {
         StockOracleGuard.FeedConfig memory config = guard.feedConfig(PAIR_ID);
         config.stockFeed = excessiveDecimals;
         config.stockFeedDecimals = 37;
+
+        vm.expectRevert(StockOracleGuard.InvalidConfiguration.selector);
+        guard.configurePair(PAIR_ID, config);
+    }
+
+    function testStockTokenMustImplementOraclePauseInterface() external {
+        MetadataOnlyToken incompatible = new MetadataOnlyToken();
+        StockOracleGuard.FeedConfig memory config = guard.feedConfig(PAIR_ID);
+        config.stockToken = address(incompatible);
+
+        vm.expectRevert(StockOracleGuard.InvalidConfiguration.selector);
+        guard.configurePair(PAIR_ID, config);
+    }
+
+    function testSequencerRequiresMinimumGracePeriod() external {
+        MockAggregator sequencer = new MockAggregator(0, "Sequencer", 0);
+        StockOracleGuard.FeedConfig memory config = guard.feedConfig(PAIR_ID);
+        config.sequencerFeed = sequencer;
+        config.sequencerGracePeriod = 1 hours - 1;
 
         vm.expectRevert(StockOracleGuard.InvalidConfiguration.selector);
         guard.configurePair(PAIR_ID, config);

@@ -122,9 +122,16 @@ contract StrategyLossReserve is
         _validateToken(config, token);
         if (amount == 0) return 0;
         IERC20 asset = IERC20(token);
+        uint256 senderBefore = asset.balanceOf(msg.sender);
         uint256 beforeBalance = asset.balanceOf(address(this));
         asset.safeTransferFrom(msg.sender, address(this), amount);
-        received = asset.balanceOf(address(this)) - beforeBalance;
+        uint256 senderAfter = asset.balanceOf(msg.sender);
+        uint256 afterBalance = asset.balanceOf(address(this));
+        if (
+            senderAfter > senderBefore || afterBalance < beforeBalance
+                || senderBefore - senderAfter != amount || afterBalance - beforeBalance != amount
+        ) revert BalanceDeltaMismatch();
+        received = amount;
         _available[pairId][token] += received;
         accountedBalance[token] += received;
         emit ReserveFunded(pairId, token, msg.sender, received);
@@ -157,7 +164,8 @@ contract StrategyLossReserve is
         uint256 maxTokensByValue = Math.mulDiv(requested, maxValue, requestedValueUSDG);
         covered = Math.min(Math.min(requested, maxTokensByValue), _available[pairId][token]);
         if (covered == 0) return 0;
-        uint256 coveredValueUSDG = Math.mulDiv(requestedValueUSDG, covered, requested);
+        uint256 coveredValueUSDG =
+            Math.mulDiv(requestedValueUSDG, covered, requested, Math.Rounding.Ceil);
         if (coveredValueUSDG > maxValue) revert CoverageCapExceeded();
 
         if (usage.day != day) {

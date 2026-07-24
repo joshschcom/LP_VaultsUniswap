@@ -203,7 +203,7 @@ contract PreflightRobinhood is Script {
             return;
         }
         require(!input.sequencerWaiverApproved, "AMBIGUOUS_SEQUENCER_POLICY");
-        require(input.sequencerGracePeriod != 0, "INVALID_SEQUENCER_GRACE_PERIOD");
+        require(input.sequencerGracePeriod >= 1 hours, "INVALID_SEQUENCER_GRACE_PERIOD");
         _requireContract(input.sequencerFeed);
         (, int256 answer, uint256 startedAt, uint256 updatedAt,) =
             IAggregatorV3(input.sequencerFeed).latestRoundData();

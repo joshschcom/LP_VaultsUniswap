@@ -112,7 +112,13 @@ contract UniswapV4PairedAdapterTest is Test {
 
         assertEq(used, 5e18);
         assertEq(output, 4e18);
+        assertEq(router.lastMinHopPriceX36(), 0.8e36);
         _assertAllowancesZero();
+    }
+
+    function testPermit2DeadlineCannotTruncateToUint48() external {
+        vm.expectRevert(UniswapV4PairedAdapter.InvalidDeadline.selector);
+        adapter.swapExactInput(PAIR_ID, address(stock), 5e18, 4e18, uint256(type(uint48).max) + 1);
     }
 
     function testRemovalMinimumsUseReferencePriceAndReturnObservedLiquidityDelta() external {
