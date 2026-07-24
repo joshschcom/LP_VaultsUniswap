@@ -64,11 +64,14 @@ monitored.
    ```bash
    TIMELOCK_MIN_DELAY=3600 forge script \
      script/DeployVaultTimelock.s.sol:DeployVaultTimelock \
+     --account "$FOUNDRY_ACCOUNT" \
      --rpc-url "$ROBINHOOD_RPC_URL"
    ```
 
    Run this as a simulation first, review the predicted address and role assertions, and
-   add `--broadcast` only for the reviewed mainnet execution.
+   add `--broadcast` only for the reviewed mainnet execution. Use an encrypted Foundry
+   keystore or hardware wallet; deployment and operation scripts do not accept plaintext
+   private-key environment variables.
 2. Copy and verify
    [`deployments/robinhood-mainnet.nvda.template.json`](./deployments/robinhood-mainnet.nvda.template.json).
 3. Run `PreflightRobinhood.s.sol` against a pinned Robinhood fork. Supply the detached

@@ -28,7 +28,7 @@ contract DeployVaultSystem is Script {
 
     function run() external {
         if (block.chainid != ROBINHOOD_CHAIN_ID) revert("WRONG_CHAIN");
-        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
+        address deployer = msg.sender;
         address timelock = vm.envAddress("TIMELOCK");
         address keeper = vm.envAddress("KEEPER");
         address guardian = vm.envAddress("GUARDIAN");
@@ -36,7 +36,6 @@ contract DeployVaultSystem is Script {
         address positionManager = vm.envAddress("POSITION_MANAGER");
         address universalRouter = vm.envAddress("UNIVERSAL_ROUTER");
         address permit2 = vm.envAddress("PERMIT2");
-        address deployer = vm.addr(deployerKey);
         _requireContract(timelock);
         _validateTimelock(TimelockController(payable(timelock)));
         _requireContract(poolManager);
@@ -54,7 +53,7 @@ contract DeployVaultSystem is Script {
         address expectedReserveProxy = vm.computeCreateAddress(deployer, firstNonce + 6);
         address expectedAdapterProxy = vm.computeCreateAddress(deployer, firstNonce + 7);
 
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast();
         RobinhoodBoostedVault vaultImpl = new RobinhoodBoostedVault();
         StockOracleGuard oracleImpl = new StockOracleGuard();
         StrategyLossReserve reserveImpl = new StrategyLossReserve();

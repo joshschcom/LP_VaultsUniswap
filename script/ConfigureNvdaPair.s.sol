@@ -85,8 +85,7 @@ contract ConfigureNvdaPair is Script {
             return;
         }
 
-        uint256 governanceKey = vm.envUint("GOVERNANCE_PRIVATE_KEY");
-        vm.startBroadcast(governanceKey);
+        vm.startBroadcast();
         oracle.configurePair(pairId, oracleConfig);
         reserve.configurePair(pairId, reserveConfig);
         vault.setAggregateUsdgDepositCap(usdg, aggregateCap);

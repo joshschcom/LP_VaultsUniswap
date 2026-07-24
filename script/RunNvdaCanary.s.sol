@@ -12,8 +12,8 @@ import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapt
 
 /**
  * @notice Runs one deliberately explicit action against the standalone NVDA/USDG canary.
- * @dev Use a different ACTION_PRIVATE_KEY for governance, keeper, and each side account.
- *      `status` and `assert-drained` are read-only and do not load a private key.
+ * @dev Select the encrypted keystore or hardware-wallet account authorized for each action.
+ *      `status` and `assert-drained` are read-only and do not require a signer.
  */
 contract RunNvdaCanary is Script {
     using SafeERC20 for IERC20;
@@ -43,63 +43,52 @@ contract RunNvdaCanary is Script {
             return;
         }
 
-        uint256 actionKey = vm.envUint("ACTION_PRIVATE_KEY");
-        address actor = vm.addr(actionKey);
+        address actor = msg.sender;
 
         if (action == keccak256("enable-allocation")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             vault.setPairPause(PAIR_ID, false, true, false);
             vm.stopBroadcast();
         } else if (action == keccak256("enable-swaps")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             vault.setPairPause(PAIR_ID, false, false, false);
             vm.stopBroadcast();
         } else if (action == keccak256("pause")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             vault.setPairPause(PAIR_ID, true, true, false);
             vm.stopBroadcast();
         } else if (action == keccak256("deposit-stock")) {
-            _deposit(vault, actionKey, actor, config.stockAccount, NVDA, "CANARY_MAX_STOCK_AMOUNT");
+            _deposit(vault, actor, config.stockAccount, NVDA, "CANARY_MAX_STOCK_AMOUNT");
         } else if (action == keccak256("deposit-usdg")) {
-            _deposit(vault, actionKey, actor, config.usdgAccount, USDG, "CANARY_MAX_USDG_AMOUNT");
+            _deposit(vault, actor, config.usdgAccount, USDG, "CANARY_MAX_USDG_AMOUNT");
         } else if (action == keccak256("fund-reserve-stock")) {
-            _fundReserve(vault, actionKey, actor, NVDA, "CANARY_MAX_RESERVE_STOCK_AMOUNT");
+            _fundReserve(vault, actor, NVDA, "CANARY_MAX_RESERVE_STOCK_AMOUNT");
         } else if (action == keccak256("fund-reserve-usdg")) {
-            _fundReserve(vault, actionKey, actor, USDG, "CANARY_MAX_RESERVE_USDG_AMOUNT");
+            _fundReserve(vault, actor, USDG, "CANARY_MAX_RESERVE_USDG_AMOUNT");
         } else if (action == keccak256("rebalance")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             vault.rebalance(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
         } else if (action == keccak256("checkpoint")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             vault.checkpoint(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
         } else if (action == keccak256("withdraw-stock")) {
-            _withdraw(
-                vault,
-                actionKey,
-                actor,
-                config.stockAccount,
-                NVDA,
-                "CANARY_MAX_STOCK_AMOUNT",
-                config
-            );
+            _withdraw(vault, actor, config.stockAccount, NVDA, "CANARY_MAX_STOCK_AMOUNT", config);
         } else if (action == keccak256("withdraw-usdg")) {
-            _withdraw(
-                vault, actionKey, actor, config.usdgAccount, USDG, "CANARY_MAX_USDG_AMOUNT", config
-            );
+            _withdraw(vault, actor, config.usdgAccount, USDG, "CANARY_MAX_USDG_AMOUNT", config);
         } else if (action == keccak256("burn-position")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             vault.burnEmptyPosition(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
         } else if (action == keccak256("pause-reserve")) {
-            vm.startBroadcast(actionKey);
+            vm.startBroadcast();
             StrategyLossReserve(address(vault.lossReserve())).setPaused(PAIR_ID, true);
             vm.stopBroadcast();
         } else if (action == keccak256("withdraw-reserve-stock")) {
-            _withdrawReserve(vault, actionKey, actor, NVDA, "CANARY_MAX_RESERVE_STOCK_AMOUNT");
+            _withdrawReserve(vault, actor, NVDA, "CANARY_MAX_RESERVE_STOCK_AMOUNT");
         } else if (action == keccak256("withdraw-reserve-usdg")) {
-            _withdrawReserve(vault, actionKey, actor, USDG, "CANARY_MAX_RESERVE_USDG_AMOUNT");
+            _withdrawReserve(vault, actor, USDG, "CANARY_MAX_RESERVE_USDG_AMOUNT");
         } else {
             revert("UNKNOWN_CANARY_ACTION");
         }
@@ -109,7 +98,6 @@ contract RunNvdaCanary is Script {
 
     function _deposit(
         RobinhoodBoostedVault vault,
-        uint256 actionKey,
         address actor,
         address expectedActor,
         address token,
@@ -121,7 +109,7 @@ contract RunNvdaCanary is Script {
         require(amount != 0 && maxAmount != 0 && amount <= maxAmount, "CANARY_AMOUNT_LIMIT");
         require(IERC20(token).balanceOf(actor) >= amount, "INSUFFICIENT_SIDE_BALANCE");
 
-        vm.startBroadcast(actionKey);
+        vm.startBroadcast();
         IERC20(token).forceApprove(address(vault), amount);
         uint256 deposited = vault.depositForPair(PAIR_ID, token, amount);
         IERC20(token).forceApprove(address(vault), 0);
@@ -132,7 +120,6 @@ contract RunNvdaCanary is Script {
 
     function _fundReserve(
         RobinhoodBoostedVault vault,
-        uint256 actionKey,
         address actor,
         address token,
         string memory maxAmountEnv
@@ -143,7 +130,7 @@ contract RunNvdaCanary is Script {
         require(IERC20(token).balanceOf(actor) >= amount, "INSUFFICIENT_FUNDER_BALANCE");
         StrategyLossReserve reserve = StrategyLossReserve(address(vault.lossReserve()));
 
-        vm.startBroadcast(actionKey);
+        vm.startBroadcast();
         IERC20(token).forceApprove(address(reserve), amount);
         uint256 deposited = reserve.deposit(PAIR_ID, token, amount);
         IERC20(token).forceApprove(address(reserve), 0);
@@ -154,7 +141,6 @@ contract RunNvdaCanary is Script {
 
     function _withdraw(
         RobinhoodBoostedVault vault,
-        uint256 actionKey,
         address actor,
         address expectedActor,
         address token,
@@ -169,7 +155,7 @@ contract RunNvdaCanary is Script {
         address receiver = vm.envOr("RECEIVER", actor);
         require(receiver != address(0), "RECEIVER_ZERO");
 
-        vm.startBroadcast(actionKey);
+        vm.startBroadcast();
         (uint256 returned, uint256 realizedLoss) =
             vault.withdrawForSide(PAIR_ID, token, amount, receiver, _deadline(config));
         vm.stopBroadcast();
@@ -181,7 +167,6 @@ contract RunNvdaCanary is Script {
 
     function _withdrawReserve(
         RobinhoodBoostedVault vault,
-        uint256 actionKey,
         address actor,
         address token,
         string memory maxAmountEnv
@@ -194,7 +179,7 @@ contract RunNvdaCanary is Script {
         address receiver = vm.envOr("RECEIVER", actor);
         require(receiver != address(0), "RECEIVER_ZERO");
 
-        vm.startBroadcast(actionKey);
+        vm.startBroadcast();
         reserve.withdrawPausedReserve(PAIR_ID, token, receiver, amount);
         vm.stopBroadcast();
     }
