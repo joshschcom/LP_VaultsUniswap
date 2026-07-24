@@ -33,6 +33,7 @@ contract DeployVaultSystem is Script {
         address universalRouter = vm.envAddress("UNIVERSAL_ROUTER");
         address permit2 = vm.envAddress("PERMIT2");
         address deployer = vm.addr(deployerKey);
+        _requireContract(timelock);
         _requireContract(poolManager);
         _requireContract(positionManager);
         _requireContract(universalRouter);

@@ -189,11 +189,11 @@ contract PreflightRobinhood is Script {
             "INVALID_PRICE_BOUNDS"
         );
         require(input.maxStockFeedAge != 0, "INVALID_FEED_AGE");
-        require(input.maxPriceDeviationBps <= 9_900, "INVALID_POOL_DEVIATION");
+        require(input.maxPriceDeviationBps <= 1_900, "INVALID_POOL_DEVIATION");
         require(
-            input.removalToleranceBps <= 10_000
+            input.removalToleranceBps <= 2_000
                 && input.removalToleranceBps >= input.maxPriceDeviationBps + 100,
-            "REMOVAL_TOLERANCE_TOO_LOW"
+            "INVALID_REMOVAL_TOLERANCE"
         );
     }
 

@@ -41,6 +41,7 @@ contract UniswapV4PairedAdapter is
     using StateLibrary for IPoolManager;
 
     uint256 internal constant BPS = 10_000;
+    uint256 internal constant MAX_REMOVAL_TOLERANCE_BPS = 2_000;
 
     struct PairState {
         address stockToken;
@@ -142,7 +143,8 @@ contract UniswapV4PairedAdapter is
         if (
             pairId == bytes32(0) || _pairs[pairId].registered || params.stockToken == address(0)
                 || params.usdg == address(0) || params.stockToken == params.usdg
-                || params.expectedPoolId == bytes32(0) || params.removalToleranceBps > BPS
+                || params.expectedPoolId == bytes32(0)
+                || params.removalToleranceBps > MAX_REMOVAL_TOLERANCE_BPS
                 || address(params.poolKey.hooks) != address(0)
         ) revert InvalidConfiguration();
 

@@ -107,6 +107,7 @@ contract RobinhoodBoostedVaultTest is Test {
         IUniswapV4PairedAdapter.PositionState memory position = adapter.positionState(PAIR_ID);
         assertEq(position.stockAmount, 10e18);
         assertEq(position.usdgAmount, 1_000e6);
+        _assertVaultAllowancesZero();
     }
 
     function testCheckpointSharesLossAtEqualPercentage() external {
@@ -136,6 +137,7 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(reserve.available(PAIR_ID, address(usdg)), 20e6);
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10.8e18);
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 1_080e6);
+        _assertVaultAllowancesZero();
     }
 
     function testIdleWithdrawalDoesNotNeedOracle() external {
@@ -357,6 +359,24 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 0);
     }
 
+    function testRebalanceAutoPausesAllocationWhenExistingPairExceedsCap() external {
+        _depositPair(1e18, 100e6);
+        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        config.maxPairValueUSDG = uint128(250e18);
+        vault.updatePairRisk(PAIR_ID, config);
+        oracle.setPrices(200e18, 1e18);
+
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        config = vault.pairConfig(PAIR_ID);
+        assertTrue(config.allocationPaused);
+        assertEq(adapter.positionState(PAIR_ID).liquidity, 0);
+        assertEq(vault.liquidAssets(PAIR_ID, address(stock)), 1e18);
+        assertEq(vault.liquidAssets(PAIR_ID, address(usdg)), 100e6);
+        _assertVaultAllowancesZero();
+    }
+
     function testFuzzRebalanceNeverConsumesUnmatchedStock(uint96 stockRaw, uint64 usdgRaw)
         external
     {
@@ -377,6 +397,13 @@ contract RobinhoodBoostedVaultTest is Test {
         vault.depositForPair(PAIR_ID, address(stock), stockAmount);
         vm.prank(usdgAccount);
         vault.depositForPair(PAIR_ID, address(usdg), usdgAmount);
+    }
+
+    function _assertVaultAllowancesZero() internal view {
+        assertEq(stock.allowance(address(vault), address(adapter)), 0);
+        assertEq(usdg.allowance(address(vault), address(adapter)), 0);
+        assertEq(stock.allowance(address(vault), address(reserve)), 0);
+        assertEq(usdg.allowance(address(vault), address(reserve)), 0);
     }
 
     function _poolKey() internal view returns (PoolKey memory key) {

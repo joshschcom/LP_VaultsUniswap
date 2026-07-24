@@ -140,6 +140,20 @@ contract UniswapV4PairedAdapterTest is Test {
         );
     }
 
+    function testRegistrationRejectsUnsafeRemovalTolerance() external {
+        vm.expectRevert(UniswapV4PairedAdapter.InvalidConfiguration.selector);
+        adapter.registerPair(
+            keccak256("UNSAFE/STOCK"),
+            IUniswapV4PairedAdapter.RegisterPairParams({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                poolKey: key,
+                expectedPoolId: PoolId.unwrap(key.toId()),
+                removalToleranceBps: 2_001
+            })
+        );
+    }
+
     function testFeeOnTransferFromVaultToAdapterRevertsAtomically() external {
         stock.setTransferFee(100, address(this), address(adapter));
         uint256 stockBefore = stock.balanceOf(address(this));
