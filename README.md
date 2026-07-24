@@ -61,10 +61,27 @@ monitored.
    token/oracle mismatch, stale or implausible prices, missing sequencer policy, a wrong
    PoolId, an uninitialized pool, or disagreement between PoolManager and StateView.
 3. Deploy the implementations and proxies with `DeployVaultSystem.s.sol`.
-4. Submit the calls represented by `ConfigureNvdaPair.s.sol` through governance. NVDA is
-   registered with allocation and swaps paused.
-5. Seed the reserve with at most $100 of combined in-kind value, smoke-test
-   checkpoint/withdrawal, then stage allocation through the configured side accounts.
+4. For the standalone mainnet canary, run `ConfigureNvdaPair.s.sol` with
+   `PAIR_LABEL=NVDA/USDG/CANARY`, temporary EOA side accounts, and deliberately small
+   nonzero pair and aggregate caps. The pair is registered with allocation and swaps
+   paused. The script prints four ordered timelock payloads by default; direct EOA
+   execution is disabled unless `DIRECT_CONFIG_BROADCAST=true` is explicitly set.
+5. Use `RunNvdaCanary.s.sol` one action at a time: inspect `status`, enable allocation,
+   deposit each side within explicit `CANARY_MAX_*_AMOUNT` limits, optionally fund each
+   reserve side within separate `CANARY_MAX_RESERVE_*_AMOUNT` limits, rebalance,
+   checkpoint, withdraw both sides, optionally burn the empty position NFT, pause and
+   withdraw the canary reserve, verify `assert-drained`, and finally pause the vault pair.
+   Use the governance, keeper, stock-side, USDG-side, reserve-admin, or funder key only
+   for the action authorized to that address. Enable settlement swaps only as a separate,
+   deliberate canary action. Set `PAYLOAD_ONLY=true` for vault/reserve governance actions
+   owned by the timelock.
+6. Seed the reserve with at most $100 of combined in-kind value during the smoke test.
+   Keep the canary drained and paused after the test.
+7. After the Peridot market contracts are ready, deploy the boosted pUSDG delegator,
+   register the distinct `PAIR_LABEL=NVDA/USDG` production pair with that delegator as
+   `USDG_SIDE_ACCOUNT`, configure the pToken while it remains paused, unpause vault
+   allocation through governance, and only then enable the pToken's vault integration.
+8. Stage production allocation through the configured side accounts.
    Permit2 allowances are created for the exact amount of each liquidity or swap
    operation and revoked before it returns. Initial reserve defaults allow at most $10
    per event, $25 per UTC day, and 50% of a realized deficit.
@@ -81,13 +98,17 @@ recorded. The template still leaves price bounds, feed staleness, settlement-swa
 and the final manifest hash unresolved; those are governance inputs and must not be
 inferred from this repository.
 
-## Future boosted-market adapter
+## Boosted pUSDG integration
 
 The pToken integration should read only `accountedAssets(pairId, token)` in exchange-rate
-accounting and use `liquidAssets` as its conservative immediately available amount. A
-withdrawal must apply `(returned, realizedLoss)` atomically before completing a borrow or
-redemption. The current sibling `IBoostedYieldAdapter` cannot communicate that loss and
-must not be wired directly to this vault.
+accounting, use `liquidAssets` as its conservative immediately available amount, and
+validate itself through `sideAccount(pairId, token)`. A withdrawal must apply
+`(returned, realizedLoss)` atomically before completing a borrow or redemption. The
+generic sibling `IBoostedYieldAdapter` cannot communicate that loss and must not be wired
+directly to this vault. The dedicated `RobinhoodBoostedDelegate` in
+`../peridot-contracts-2-5/contracts` calls the vault from the pUSDG delegator address,
+uses the complete claim for exchange-rate accounting, uses only idle vault assets for
+cash checks, and settles realized loss before completing a redemption.
 
 This code has not been independently audited and must remain paused for new allocation
 until Robinhood fork tests and an external security review are complete.

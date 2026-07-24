@@ -59,6 +59,18 @@
       "reviewAbsoluteLimitsAsFeeReserveGrows": true
     }
   },
+  "rollout": {
+    "canaryPairLabel": "NVDA/USDG/CANARY",
+    "productionPairLabel": "NVDA/USDG",
+    "canaryUsesTemporaryEoaSideAccounts": true,
+    "productionUsdgSideAccount": "TODO_PUSDG_DELEGATOR",
+    "requirements": [
+      "Register the canary and production labels as distinct pair IDs.",
+      "Keep both pairs paused at registration.",
+      "Drain and pause the canary before configuring the production pair.",
+      "Validate productionUsdgSideAccount through vault.sideAccount before enabling boost."
+    ]
+  },
   "registrySnapshotSha256": "0x184c4c5d74f40ac6afe8f7a035a683d874b2a81a12a7ac95a6c15cb76e60641a",
   "manifestSha256": "TODO_GENERATE_AFTER_VERIFICATION"
 }

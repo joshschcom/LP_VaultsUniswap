@@ -92,6 +92,11 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.liquidAssets(PAIR_ID, address(usdg)), 1_000e6);
     }
 
+    function testSideAccountLookupSupportsBoostedPTokenValidation() external view {
+        assertEq(vault.sideAccount(PAIR_ID, address(stock)), stockAccount);
+        assertEq(vault.sideAccount(PAIR_ID, address(usdg)), usdgAccount);
+    }
+
     function testRebalanceDeploysOnlyMatchedOracleValue() external {
         _depositPair(20e18, 1_000e6);
         vm.prank(keeper);

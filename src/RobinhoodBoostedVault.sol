@@ -264,6 +264,13 @@ contract RobinhoodBoostedVault is
         revert UnsupportedToken();
     }
 
+    function sideAccount(bytes32 pairId, address token) external view returns (address) {
+        PairConfig storage config = _config(pairId);
+        if (token == config.stockToken) return config.stockAccount;
+        if (token == config.usdg) return config.usdgAccount;
+        revert UnsupportedToken();
+    }
+
     function liquidAssets(bytes32 pairId, address token) external view returns (uint256) {
         PairConfig storage config = _config(pairId);
         PairLedger storage pairLedger = _ledger[pairId];

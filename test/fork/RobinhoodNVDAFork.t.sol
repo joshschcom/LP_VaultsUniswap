@@ -55,7 +55,10 @@ contract RobinhoodNVDAForkTest is Test {
 
     function setUp() external {
         string memory rpcUrl = vm.envOr("ROBINHOOD_RPC_URL", string(""));
-        if (bytes(rpcUrl).length == 0) return;
+        if (bytes(rpcUrl).length == 0) {
+            vm.skip(true);
+            return;
+        }
         vm.createSelectFork(rpcUrl, PINNED_BLOCK);
         forkEnabled = true;
     }
