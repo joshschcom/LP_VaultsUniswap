@@ -138,6 +138,9 @@ preflight, chained timelock operations, and verified paused execution record are
 [`deployments/robinhood-mainnet.nvda.canary.operations.json`](./deployments/robinhood-mainnet.nvda.canary.operations.json),
 and
 [`deployments/robinhood-mainnet.nvda.canary.execution.json`](./deployments/robinhood-mainnet.nvda.canary.execution.json).
+The separately reviewed operation that enables only canary allocation while retaining
+the settlement-swap pause is in
+[`deployments/robinhood-mainnet.nvda.canary.enable-allocation.json`](./deployments/robinhood-mainnet.nvda.canary.enable-allocation.json).
 The generic template intentionally retains unresolved placeholders and must not be used
 as an executable manifest.
 
