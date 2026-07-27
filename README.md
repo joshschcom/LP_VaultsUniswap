@@ -132,11 +132,12 @@ Idle-only withdrawals remain available during oracle or pool incidents.
 
 The standard NVDA feed, refreshed Robinhood registry snapshot, and reviewed sequencer
 waiver are recorded. The finalized canary policy, its detached hash, pinned live
-preflight, and chained timelock operations are in
+preflight, chained timelock operations, and verified paused execution record are in
 [`deployments/robinhood-mainnet.nvda.canary.json`](./deployments/robinhood-mainnet.nvda.canary.json),
 [`deployments/robinhood-mainnet.nvda.canary.preflight.json`](./deployments/robinhood-mainnet.nvda.canary.preflight.json),
+[`deployments/robinhood-mainnet.nvda.canary.operations.json`](./deployments/robinhood-mainnet.nvda.canary.operations.json),
 and
-[`deployments/robinhood-mainnet.nvda.canary.operations.json`](./deployments/robinhood-mainnet.nvda.canary.operations.json).
+[`deployments/robinhood-mainnet.nvda.canary.execution.json`](./deployments/robinhood-mainnet.nvda.canary.execution.json).
 The generic template intentionally retains unresolved placeholders and must not be used
 as an executable manifest.
 

@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "status": "CONFIGURED_PAUSED_UNFUNDED_VERIFIED",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "verifiedAtUtc": "2026-07-27T10:49:43Z",
+  "verificationBlock": {
+    "number": 20673026,
+    "hash": "0xf7ce109fdec608d17cd60837cb2770e4b5d48742f1b0e0a58990b6e7fc942431",
+    "timestampUtc": "2026-07-27T10:49:43Z"
+  },
+  "source": {
+    "deployedSourceCommit": "0baf5b65ea1879210c75a5f0b4c7ae2fde6f4294",
+    "configurationCommit": "b55aacba346803c7a8038269919ab487b979116e",
+    "manifest": "./robinhood-mainnet.nvda.canary.json",
+    "manifestSha256": "0x735aef4b47845e7e7835595818560db5af1f3d305454d820fabce97e2dd5f0ca",
+    "operations": "./robinhood-mainnet.nvda.canary.operations.json",
+    "operationsSha256": "0x91d36fe3bfcc8eb3b08be71e00dd2a9631cff713e6ee33408eae38d7b685bf84"
+  },
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposerAndExecutor": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "pair": {
+    "label": "NVDA/USDG/CANARY",
+    "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+    "stockToken": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "stockSideAccount": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "usdgSideAccount": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "operations": [
+    {
+      "order": 1,
+      "name": "configure-oracle",
+      "operationId": "0x7872672fd42c32b5bd80972556c8aaf1809f1ca64af52c47963e32da6638baac",
+      "scheduled": {
+        "transactionHash": "0xd87c88862ed1a71163ee43f239f0bd85c051e3cf703c142f927e207f4d57cb2b",
+        "blockNumber": 20569641,
+        "blockTimestampUtc": "2026-07-27T07:56:38Z",
+        "readyAtUtc": "2026-07-27T08:56:38Z"
+      },
+      "executed": {
+        "transactionHash": "0xc593e45b9256e4467b8f3a4765a0d55c055b9ec82e9eef241559be08dfcb5a36",
+        "blockNumber": 20669005,
+        "blockTimestampUtc": "2026-07-27T10:43:00Z",
+        "receiptStatus": 1
+      },
+      "finalOperationState": 3
+    },
+    {
+      "order": 2,
+      "name": "configure-reserve",
+      "operationId": "0x8664570d3e808e9dc62717ec058ae47b273d78b61e4982662734fa46866423c3",
+      "scheduled": {
+        "transactionHash": "0x27a855de16a913c8092d674ff7536a0c5729643c4480e8e313d03e78fb2bb4e6",
+        "blockNumber": 20570971,
+        "blockTimestampUtc": "2026-07-27T07:58:51Z",
+        "readyAtUtc": "2026-07-27T08:58:51Z"
+      },
+      "executed": {
+        "transactionHash": "0xcb2890faab0f51ec485018c797bcc249f055053d81554d2ef1f3ac9958ecd7d9",
+        "blockNumber": 20669188,
+        "blockTimestampUtc": "2026-07-27T10:43:18Z",
+        "receiptStatus": 1
+      },
+      "finalOperationState": 3
+    },
+    {
+      "order": 3,
+      "name": "set-aggregate-cap",
+      "operationId": "0x1c08a31a8816d3360bc0f9fe70805637383513b27d0812aab2096755fa58db61",
+      "scheduled": {
+        "transactionHash": "0xec9e8f749511b95a49d2ef4074019e5e347f540904b890ca68d920c1919955df",
+        "blockNumber": 20598298,
+        "blockTimestampUtc": "2026-07-27T08:44:36Z",
+        "readyAtUtc": "2026-07-27T09:44:36Z"
+      },
+      "executed": {
+        "transactionHash": "0x681de5311504914a126136ac01c32074ac9fa2dca95fdc90e94eb31dfff04644",
+        "blockNumber": 20669342,
+        "blockTimestampUtc": "2026-07-27T10:43:34Z",
+        "receiptStatus": 1
+      },
+      "finalOperationState": 3
+    },
+    {
+      "order": 4,
+      "name": "register-vault-pair",
+      "operationId": "0x5b0394c75b04a7e1c7fc0d81c2fe2cb88503b83d3886437ec32569d2a6a274b5",
+      "scheduled": {
+        "transactionHash": "0x0c34bdf41ae013a102a498e4a00d58159b31b78447136a40236736e7d2a952a5",
+        "blockNumber": 20620244,
+        "blockTimestampUtc": "2026-07-27T09:21:21Z",
+        "readyAtUtc": "2026-07-27T10:21:21Z"
+      },
+      "executed": {
+        "transactionHash": "0xfb89f7b2e1f7502142977919bb7bbebeb46890bc557ed4c29a3ca84e07e92ed3",
+        "blockNumber": 20669585,
+        "blockTimestampUtc": "2026-07-27T10:43:57Z",
+        "receiptStatus": 1
+      },
+      "finalOperationState": 3
+    }
+  ],
+  "postExecutionPreflight": {
+    "status": "PASS",
+    "blockNumber": 20673026,
+    "blockHash": "0xf7ce109fdec608d17cd60837cb2770e4b5d48742f1b0e0a58990b6e7fc942431",
+    "blockTimestampUtc": "2026-07-27T10:49:43Z",
+    "stockPriceUSD18": "208865000000000000000",
+    "feedUpdatedAtUtc": "2026-07-27T02:00:55Z",
+    "feedAgeSeconds": 31728,
+    "sqrtPriceX96": "5479965505807076114933185464191100",
+    "tick": 222896,
+    "liquidity": "1750678271887697391",
+    "protocolFee": 0,
+    "lpFee": 3000
+  },
+  "verifiedConfiguration": {
+    "oracle": {
+      "maxStalenessSeconds": 43200,
+      "sequencerGracePeriodSeconds": 3600,
+      "maxPriceDeviationBps": 300,
+      "stockDecimals": 18,
+      "usdgDecimals": 6,
+      "stockFeedDecimals": 8,
+      "usdgFixedOne": true,
+      "enabled": true
+    },
+    "reserve": {
+      "maxUsePerTxUSDG18": "10000000000000000000",
+      "dailyCapUSDG18": "25000000000000000000",
+      "maxCoverageBps": 5000,
+      "paused": false,
+      "exists": true
+    },
+    "vault": {
+      "aggregateUsdgDepositCap": "100000000000000000000",
+      "maxPairValueUSDG18": "100000000000000000000",
+      "maxSettlementSwapUSDG18": "10000000000000000000",
+      "maxCheckpointAgeSeconds": 3600,
+      "maxDeadlineDelaySeconds": 300,
+      "reserveFeeBps": 2000,
+      "maxSwapSlippageBps": 100,
+      "withdrawOverUnwindBps": 200,
+      "allocationPaused": true,
+      "swapsPaused": true,
+      "emergencyMode": false,
+      "exists": true
+    },
+    "adapter": {
+      "registeredRemovalToleranceBps": 400,
+      "tokenId": "0",
+      "liquidity": "0",
+      "stockAmount": "0",
+      "usdgAmount": "0"
+    },
+    "ledger": {
+      "stockPrincipal": "0",
+      "usdgPrincipal": "0",
+      "stockIdle": "0",
+      "usdgIdle": "0",
+      "cumulativeLossUSDG": "0",
+      "lastCheckpoint": 1785149037
+    },
+    "assetBalances": {
+      "vaultNvda": "0",
+      "vaultUsdg": "0",
+      "reserveNvda": "0",
+      "reserveUsdg": "0",
+      "adapterNvda": "0",
+      "adapterUsdg": "0"
+    },
+    "allowances": {
+      "adapterErc20ToPermit2Nvda": "0",
+      "adapterErc20ToPermit2Usdg": "0",
+      "adapterPermit2ToPositionManagerNvda": "0",
+      "adapterPermit2ToPositionManagerUsdg": "0",
+      "adapterPermit2ToUniversalRouterNvda": "0",
+      "adapterPermit2ToUniversalRouterUsdg": "0"
+    }
+  },
+  "safetyState": {
+    "allTimelockOperationsDone": true,
+    "allocationPaused": true,
+    "swapsPaused": true,
+    "emergencyMode": false,
+    "noAssetsTransferred": true,
+    "noPositionMinted": true,
+    "canaryDrainedAssertionPassed": true
+  },
+  "nextRequiredAction": "Keep the canary paused and unfunded. Select explicit smoke-test amounts, run a fresh fail-closed preflight, and use a separately reviewed timelock operation before enabling allocation."
+}

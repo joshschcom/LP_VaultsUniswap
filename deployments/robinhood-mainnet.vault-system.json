@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "DEPLOYED_UNCONFIGURED_VERIFIED",
+  "status": "DEPLOYED_CANARY_CONFIGURED_PAUSED_VERIFIED",
   "verifiedAtUtc": "2026-07-27T07:01:23Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
@@ -99,8 +99,8 @@
     "deployerHasTimelockAdmin": false,
     "deployerHasVaultAdminOrConfig": false,
     "keeperAndGuardianRolesMatch": true,
-    "pairRegisteredEventCount": 0,
-    "canaryPairExists": false,
+    "pairRegisteredEventCount": 1,
+    "canaryPairExists": true,
     "assetBalances": {
       "vaultNvda": "0",
       "vaultUsdg": "0",
@@ -110,6 +110,18 @@
       "adapterUsdg": "0"
     }
   },
+  "canaryConfiguration": {
+    "status": "CONFIGURED_PAUSED_UNFUNDED_VERIFIED",
+    "record": "./robinhood-mainnet.nvda.canary.execution.json",
+    "recordSha256": "0xc7753219b7b4dd2dea77d4bbadef7cb071231f3775dbc5840c59d79d6dd4f655",
+    "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+    "verifiedAtUtc": "2026-07-27T10:49:43Z",
+    "verificationBlockNumber": 20673026,
+    "allocationPaused": true,
+    "swapsPaused": true,
+    "emergencyMode": false,
+    "unfunded": true
+  },
   "totalDeploymentCostEth": "0.000691702509570",
-  "nextRequiredAction": "Finalize and review the NVDA canary risk manifest, then configure the pair through the timelock before transferring any assets."
+  "nextRequiredAction": "Keep the canary paused and unfunded. Select explicit smoke-test amounts, run a fresh fail-closed preflight, and use a separately reviewed timelock operation before enabling allocation."
 }
