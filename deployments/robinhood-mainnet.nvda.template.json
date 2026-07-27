@@ -3,6 +3,7 @@
   "chainId": 4663,
   "researchCheckpoint": "2026-07-23",
   "vaultSystemManifest": "./robinhood-mainnet.vault-system.json",
+  "finalizedCanaryManifest": "./robinhood-mainnet.nvda.canary.json",
   "forkVerification": {
     "blockNumber": 17091638,
     "feedUpdatedAt": 1784790068,

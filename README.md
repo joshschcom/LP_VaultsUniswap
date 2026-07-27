@@ -130,10 +130,15 @@ also enforce an oracle-derived per-hop execution-price floor and a bounded size,
 public submission retains residual sandwich risk inside the configured tolerance.
 Idle-only withdrawals remain available during oracle or pool incidents.
 
-The standard NVDA feed, Robinhood registry snapshot, and reviewed sequencer waiver are
-recorded. The template still leaves price bounds, feed staleness, settlement-swap size,
-and the final manifest hash unresolved; those are governance inputs and must not be
-inferred from this repository.
+The standard NVDA feed, refreshed Robinhood registry snapshot, and reviewed sequencer
+waiver are recorded. The finalized canary policy, its detached hash, pinned live
+preflight, and chained timelock operations are in
+[`deployments/robinhood-mainnet.nvda.canary.json`](./deployments/robinhood-mainnet.nvda.canary.json),
+[`deployments/robinhood-mainnet.nvda.canary.preflight.json`](./deployments/robinhood-mainnet.nvda.canary.preflight.json),
+and
+[`deployments/robinhood-mainnet.nvda.canary.operations.json`](./deployments/robinhood-mainnet.nvda.canary.operations.json).
+The generic template intentionally retains unresolved placeholders and must not be used
+as an executable manifest.
 
 ## Boosted pUSDG integration
 
