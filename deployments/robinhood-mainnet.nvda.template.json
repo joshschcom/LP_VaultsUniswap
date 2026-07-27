@@ -1,7 +1,8 @@
 {
-  "status": "TODO_DEPLOYMENT_VERIFY",
+  "status": "VAULT_SYSTEM_DEPLOYED_PAIR_CONFIGURATION_PENDING",
   "chainId": 4663,
   "researchCheckpoint": "2026-07-23",
+  "vaultSystemManifest": "./robinhood-mainnet.vault-system.json",
   "forkVerification": {
     "blockNumber": 17091638,
     "feedUpdatedAt": 1784790068,
@@ -9,10 +10,10 @@
     "feedDecimals": 8
   },
   "governance": {
-    "timelock": "TODO_DEPLOY",
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
     "minimumDelaySeconds": 3600,
-    "proposer": "TODO_DEPLOYER_EOA",
-    "executor": "TODO_DEPLOYER_EOA",
+    "proposer": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "executor": "0x94696d767e65a75581145646960FA0eC886cE5d2",
     "externalAdmin": "0x0000000000000000000000000000000000000000",
     "productionHardening": [
       "Increase the delay through a timelocked self-call before accepting material TVL.",

@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "status": "DEPLOYED_UNCONFIGURED_VERIFIED",
+  "verifiedAtUtc": "2026-07-27T07:01:23Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "source": {
+    "repository": "joshschcom/LP_VaultsUniswap",
+    "branch": "robinhood-vault-canary",
+    "commitSha": "0baf5b65ea1879210c75a5f0b4c7ae2fde6f4294",
+    "almanaxScanId": "5105acc1-632a-4e4a-8248-c9e1cbd9b2ad",
+    "almanaxActiveFindings": 0
+  },
+  "deployer": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposer": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "canceller": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "executor": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "externalAdmin": "0x0000000000000000000000000000000000000000",
+    "selfAdmin": true,
+    "deployment": {
+      "transactionHash": "0xde41c4cbbe75dab83836d3824ea90c1c90100734547ca7aef8b551eb685c5236",
+      "blockNumber": 20522621
+    }
+  },
+  "operationalRoles": {
+    "keeper": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "guardian": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "dependencies": {
+    "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "positionManager": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
+    "universalRouter": "0x8876789976decbfcbbbe364623c63652db8c0904",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+  },
+  "components": {
+    "vault": {
+      "implementation": "0x7A655600C20ECa59BAcBd9d8fFB23D6D5ce36f5c",
+      "proxy": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+      "proxyAdmin": "0xad2165E6f3b8146D17815968470eDb8B9a0A4ab7",
+      "implementationDeployment": {
+        "transactionHash": "0x2271c0cff977c07d1f594a49e96a54a8fadf2bdb91917cda2eec860e72cfd300",
+        "blockNumber": 20533793
+      },
+      "proxyDeployment": {
+        "transactionHash": "0x41741cee9377837c8e2932cb537e6774cb14440fddff184aad40c0891cda6ea5",
+        "blockNumber": 20533890
+      }
+    },
+    "oracle": {
+      "implementation": "0x370A3CA938A5DB977bBDC790D03b9C232f15f7f4",
+      "proxy": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+      "proxyAdmin": "0x7300F5AE32e9EE8De9221179aE4234A4Aef53aD1",
+      "implementationDeployment": {
+        "transactionHash": "0x5543be8d3802ef82187296b8096319b976ee0d7e5c6ab7265ac795164f62f93b",
+        "blockNumber": 20533818
+      },
+      "proxyDeployment": {
+        "transactionHash": "0x3477aaa202852ccc48b7f8533e3e977791d92d0872c09490b3479fc91d766c29",
+        "blockNumber": 20533914
+      }
+    },
+    "reserve": {
+      "implementation": "0xA37ef5f1bf20863Cb256158FE3E5E07768F43227",
+      "proxy": "0x806b182B050f7EcF908758dD6bBF91DB8B2212aF",
+      "proxyAdmin": "0xCc17491336CFc4dEdC0052c57111b341E11bE042",
+      "implementationDeployment": {
+        "transactionHash": "0x0ffa104d2208b46373af18397645d709452c9bebf8befcb3fe5018affee63eaa",
+        "blockNumber": 20533842
+      },
+      "proxyDeployment": {
+        "transactionHash": "0x44dcadcbfd3789801e83479dae2fb33bc323e117ece7de0deef0db47d5c7358d",
+        "blockNumber": 20533938
+      }
+    },
+    "adapter": {
+      "implementation": "0xe24Eb4f6B95110b5Dc0F8232C54405Ee594aBA88",
+      "proxy": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3",
+      "proxyAdmin": "0x5a345842E3304EE97360de1C61699BA0Efea906b",
+      "implementationDeployment": {
+        "transactionHash": "0x3d199963562d6041c16ef68a9d218c15de2d098bf2352e8a13f48337998dbbf6",
+        "blockNumber": 20533866
+      },
+      "proxyDeployment": {
+        "transactionHash": "0x84f71ac69a9cb6aa05824a6e8500de3aa2a5927986c45b18ceca23e86dac6af6",
+        "blockNumber": 20533962
+      }
+    }
+  },
+  "postDeploymentVerification": {
+    "allDeploymentReceiptsSuccessful": true,
+    "implementationSlotsMatch": true,
+    "proxyAdminSlotsMatch": true,
+    "allProxyAdminsOwnedByTimelock": true,
+    "initializerWiringMatches": true,
+    "timelockIsSelfAdmin": true,
+    "deployerHasTimelockAdmin": false,
+    "deployerHasVaultAdminOrConfig": false,
+    "keeperAndGuardianRolesMatch": true,
+    "pairRegisteredEventCount": 0,
+    "canaryPairExists": false,
+    "assetBalances": {
+      "vaultNvda": "0",
+      "vaultUsdg": "0",
+      "reserveNvda": "0",
+      "reserveUsdg": "0",
+      "adapterNvda": "0",
+      "adapterUsdg": "0"
+    }
+  },
+  "totalDeploymentCostEth": "0.000691702509570",
+  "nextRequiredAction": "Finalize and review the NVDA canary risk manifest, then configure the pair through the timelock before transferring any assets."
+}

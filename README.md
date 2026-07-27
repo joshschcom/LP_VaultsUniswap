@@ -54,6 +54,11 @@ monitored.
 
 ## Deployment
 
+The unconfigured Robinhood mainnet vault system was deployed and independently verified
+on 2026-07-27. No pair has been registered and the vault, reserve, and adapter hold no
+NVDA or USDG. Exact addresses, transactions, source commit, and ownership checks are in
+[`deployments/robinhood-mainnet.vault-system.json`](./deployments/robinhood-mainnet.vault-system.json).
+
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
    admin bypass. For the standalone canary, the deployer EOA may initially be both
