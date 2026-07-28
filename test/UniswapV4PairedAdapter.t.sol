@@ -146,6 +146,22 @@ contract UniswapV4PairedAdapterTest is Test {
         );
     }
 
+    function testCollectFeesReturnsZeroForEmptyUnburnedPosition() external {
+        (,, uint128 added) = adapter.addLiquidity(PAIR_ID, 100e18, 100e18, block.timestamp + 60);
+        adapter.decreaseLiquidity(PAIR_ID, added, uint160(1 << 96), block.timestamp + 60);
+
+        IUniswapV4PairedAdapter.PositionState memory position = adapter.positionState(PAIR_ID);
+        assertNotEq(position.tokenId, 0);
+        assertEq(position.liquidity, 0);
+
+        (uint256 stockFees, uint256 usdgFees) = adapter.collectFees(PAIR_ID, block.timestamp + 60);
+
+        assertEq(stockFees, 0);
+        assertEq(usdgFees, 0);
+        assertEq(adapter.positionState(PAIR_ID).tokenId, position.tokenId);
+        _assertAllowancesZero();
+    }
+
     function testRegistrationRejectsUnsafeRemovalTolerance() external {
         vm.expectRevert(UniswapV4PairedAdapter.InvalidConfiguration.selector);
         adapter.registerPair(

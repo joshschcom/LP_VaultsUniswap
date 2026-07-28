@@ -149,6 +149,7 @@ contract MockPositionManager {
             ) = abi.decode(params[0], (uint256, uint256, uint128, uint128, bytes));
             hookData;
             Position storage position = _positions[tokenId];
+            require(position.liquidity != 0 || liquidity != 0, "CannotUpdateEmptyPosition");
             uint256 adjustedLiquidity = liquidity > removalHaircut ? liquidity - removalHaircut : 0;
             uint128 removed = uint128(Math.min(adjustedLiquidity, position.liquidity));
             position.liquidity -= removed;

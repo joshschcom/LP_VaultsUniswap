@@ -301,7 +301,7 @@ contract UniswapV4PairedAdapter is
     {
         _checkDeadline(deadline);
         PairState storage pair = _pair(pairId);
-        if (pair.tokenId == 0) return (0, 0);
+        if (pair.tokenId == 0 || pair.liquidity == 0) return (0, 0);
         (stockFees, usdgFees) = _decreaseAndTransfer(pair, 0, 0, 0, deadline);
         emit FeesCollected(pairId, stockFees, usdgFees);
     }

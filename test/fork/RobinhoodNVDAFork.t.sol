@@ -197,6 +197,9 @@ contract RobinhoodNVDAForkTest is Test {
         );
         assertGt(finalStock, 0);
         assertGt(finalUsdg, 0);
+        (uint256 stockFees, uint256 usdgFees) = adapter.collectFees(PAIR_ID, block.timestamp + 300);
+        assertEq(stockFees, 0);
+        assertEq(usdgFees, 0);
         adapter.burnEmptyPosition(PAIR_ID, block.timestamp + 300);
         assertEq(adapter.positionState(PAIR_ID).tokenId, 0);
     }
