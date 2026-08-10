@@ -154,6 +154,43 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 7e18);
     }
 
+    function testIdleWithdrawalRecognizesSharedLossWhileLiquidityRemains() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Ten stock remain idle while the matched position moves from
+        // 10 stock / 1,000 USDG to 7 stock / 1,400 USDG. At a $200 stock
+        // price, gross assets are $4,800 against a $5,000 benchmark.
+        oracle.setPrices(200e18, 1e18);
+        adapter.setPosition(PAIR_ID, 7e18, 1_400e6);
+
+        vm.prank(stockAccount);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 10e18, receiver, block.timestamp + 60);
+
+        assertEq(returned, 10e18);
+        assertEq(loss, 0.8e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 9.2e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 960e6);
+        assertEq(vault.ledger(PAIR_ID).cumulativeLossUSDG, 200e18);
+    }
+
+    function testIdleWithdrawalWithOpenLiquidityFailsClosedOnOracleError() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        oracle.setShouldRevert(true);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp + 60);
+
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 20e18);
+        assertEq(vault.liquidAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(stock.balanceOf(receiver), 0);
+    }
+
     function testWithdrawalUnwindsOnlyNeededSlice() external {
         _depositPair(10e18, 1_000e6);
         vm.prank(keeper);
@@ -252,6 +289,57 @@ contract RobinhoodBoostedVaultTest is Test {
         RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
         assertFalse(config.emergencyMode);
         assertEq(adapter.positionState(PAIR_ID).liquidity, liquidity);
+    }
+
+    function testEmergencyDecreaseRecognizesLossBeforeIdleWithdrawal() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Model the position at 20 stock / 500 USDG and a $25 stock price:
+        // $1,000 of gross assets against a $1,250 benchmark.
+        stock.mint(address(adapter), 10e18);
+        adapter.setPosition(PAIR_ID, 20e18, 500e6);
+        oracle.setPrices(25e18, 1e18);
+        uint128 liquidity = adapter.positionState(PAIR_ID).liquidity;
+
+        vm.prank(guardian);
+        vault.emergencyDecrease(PAIR_ID, liquidity, block.timestamp + 60);
+
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 8e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 800e6);
+        assertEq(vault.ledger(PAIR_ID).cumulativeLossUSDG, 250e18);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(RobinhoodBoostedVault.InsufficientPrincipal.selector);
+        vault.withdrawForSide(PAIR_ID, address(stock), 10e18, receiver, 0);
+
+        // Once the LP is fully removed and its loss is allocated, the remaining
+        // emergency idle claim stays withdrawable even if the oracle later fails.
+        oracle.setShouldRevert(true);
+        vm.prank(stockAccount);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 8e18, receiver, 0);
+        assertEq(returned, 8e18);
+        assertEq(loss, 0);
+        assertEq(stock.balanceOf(receiver), 8e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 0);
+    }
+
+    function testPartialEmergencyDecreaseBlocksIdleWithdrawalUntilFullyExited() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        uint128 liquidity = adapter.positionState(PAIR_ID).liquidity;
+
+        vm.prank(guardian);
+        vault.emergencyDecrease(PAIR_ID, liquidity / 2, block.timestamp + 60);
+
+        assertGt(vault.liquidAssets(PAIR_ID, address(stock)), 1e18);
+        assertGt(adapter.positionState(PAIR_ID).liquidity, 0);
+        vm.prank(stockAccount);
+        vm.expectRevert(RobinhoodBoostedVault.EmergencyMode.selector);
+        vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, 0);
     }
 
     function testCurrentTimestampDeadlineIsAcceptedForLPWithdrawal() external {

@@ -439,7 +439,11 @@ contract RobinhoodBoostedVault is
         if (requested == 0) return (0, 0);
 
         uint256 idle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
-        if (idle < requested) {
+        bool hasOpenLiquidity = liquidityAdapter.positionState(pairId).liquidity != 0;
+        // Idle is part of the pair's shared benchmark while any LP liquidity remains.
+        // Settle current strategy losses before either side can reduce its claim, even
+        // when that side's requested token is already available in the vault.
+        if (idle < requested || hasOpenLiquidity) {
             if (config.emergencyMode) revert EmergencyMode();
             _checkDeadline(config, deadline);
             uint256 stockPrice;
@@ -495,6 +499,7 @@ contract RobinhoodBoostedVault is
         config.emergencyMode = true;
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
         (,, uint160 referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+        (uint256 stockPrice, uint256 usdgPrice) = oracleGuard.pricesUSD18(pairId);
         uint256 stockBalanceBefore = IERC20(config.stockToken).balanceOf(address(this));
         uint256 usdgBalanceBefore = IERC20(config.usdg).balanceOf(address(this));
         (uint256 stockReceived, uint256 usdgReceived, uint128 liquidityRemoved) =
@@ -504,6 +509,9 @@ contract RobinhoodBoostedVault is
         PairLedger storage pairLedger = _ledger[pairId];
         pairLedger.stockIdle += stockReceived;
         pairLedger.usdgIdle += usdgReceived;
+        // Allocate any shared LP loss atomically with the guardian exit. If this was
+        // only a partial exit, withdrawForSide remains closed while liquidity remains.
+        _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice);
         emit EmergencyLiquidityDecreased(pairId, liquidityRemoved, stockReceived, usdgReceived);
         emit PairPauseUpdated(pairId, true, true, true);
     }

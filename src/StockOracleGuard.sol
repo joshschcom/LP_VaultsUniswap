@@ -142,9 +142,9 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
     {
         FeedConfig storage config = _feeds[pairId];
         if (!config.enabled) revert PairNotEnabled();
-        // Deliberately fail closed for LP-backed operations. Idle withdrawals do not
-        // call the guard, but neither normal nor guardian liquidity removal may bypass
-        // a stock-token oracle pause.
+        // Deliberately fail closed for LP-backed operations. Withdrawals from pairs
+        // with no open LP liquidity do not call the guard, but neither normal nor
+        // guardian liquidity removal may bypass a stock-token oracle pause.
         if (IStockToken(config.stockToken).oraclePaused()) revert StockOraclePaused();
         _checkSequencer(config);
 
