@@ -56,29 +56,29 @@ monitored.
 
 The proposed external-review wording currently combines the Robinhood boosted-vault
 system with the separate ERC-4626 V3 LP-vault subsystem in
-`peridot-contracts-2-5`. Counted together, that scope contains **3,820 Solidity nSLOC**:
+`peridot-contracts-2-5`. Counted together, that scope contains **3,823 Solidity nSLOC**:
 
 | Component | Solidity nSLOC |
 | --- | ---: |
-| Robinhood vault, v4 adapter, loss reserve, oracle, local interfaces, and math | 2,042 |
+| Robinhood vault, v4 adapter, loss reserve, oracle, local interfaces, and math | 2,045 |
 | Robinhood boosted pUSDG delegate and vault interface | 370 |
 | Robinhood proxy and access-control helpers | 34 |
 | ERC-4626 V3 LP vault, oracle, local interfaces, and math | 1,374 |
-| **Combined scope as worded** | **3,820** |
+| **Combined scope as worded** | **3,823** |
 
 The count excludes blank lines, comment-only lines, tests, deployment scripts, generated
 artifacts, vendored OpenZeppelin/Uniswap code, and the explicitly out-of-scope Peridot
-lending core. The corresponding raw physical total is 4,502 lines. The reproducible
+lending core. The corresponding raw physical total is 4,510 lines. The reproducible
 source snapshots are:
 
 - `LP_VaultsUniswap` commit
-  [`c0a75d2bd18841b7995bd163dad032331511caf4`](https://github.com/joshschcom/LP_VaultsUniswap/commit/c0a75d2bd18841b7995bd163dad032331511caf4)
+  [`0bcf8c993906aedd23a59a2c73b88c169d90fe55`](https://github.com/joshschcom/LP_VaultsUniswap/commit/0bcf8c993906aedd23a59a2c73b88c169d90fe55)
 - `peridot-contracts-2-5` commit
   [`592da09a5752774f8834a3f90d768e8d1344e539`](https://github.com/PeridotFinance/peridot-contracts-2-5/commit/592da09a5752774f8834a3f90d768e8d1344e539)
 
 The Robinhood vault itself is not ERC-4626 and does not implement a withdrawal queue.
 If the engagement is intended to cover only the Robinhood vault and boosted pUSDG
-integration, the correct total is **2,446 Solidity nSLOC**; in that case, references to
+integration, the correct total is **2,449 Solidity nSLOC**; in that case, references to
 ERC-4626 accounting and withdrawal-queue handling should be removed from the submitted
 scope. The Robinhood-only review should instead cover side-specific deposit/withdrawal
 accounting, pToken exchange-rate and loss-aware redemption accounting, Uniswap v4
@@ -113,6 +113,22 @@ deployment and exact pending timelock operation are recorded in
 [`deployments/robinhood-mainnet.adapter-empty-position-upgrade.json`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.json),
 with its detached digest in
 [`deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256).
+
+A subsequent LLM review identified that a side could withdraw unmatched idle assets before
+an uncheckpointed shared LP loss was allocated, shifting that loss to the opposite side.
+Commit `0bcf8c993906aedd23a59a2c73b88c169d90fe55` makes every principal reduction settle
+current loss while LP liquidity remains, recognizes loss atomically during guardian
+decreases, and blocks emergency withdrawals after a partial decrease until the LP is fully
+removed. Pairs with no open LP liquidity and fully completed guardian exits retain the
+oracle-free idle withdrawal path. The remediation passed 76 local unit/fuzz/invariant
+tests, seven pinned Robinhood fork tests, formatting and contract-size checks; the vault
+runtime is 23,969 bytes, 607 bytes below the EIP-170 limit. Almanax scan
+`d2370f15-89d1-4a1f-8c2f-812df7701fdd` has zero active findings. Its only result,
+`7b2b8c7c-b34e-45a4-ab6d-a5e098653ffa`, was dismissed as the intentional fail-closed
+availability tradeoff: bypassing oracle/pool validation while shared LP exposure remains
+would recreate the high-severity cross-side loss evasion. This vault remediation is not
+deployed until a separately verified replacement implementation and timelocked proxy
+upgrade are recorded and executed.
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
@@ -183,7 +199,10 @@ use private order flow and monitor the pool and oracle continuously; see the
 [Uniswap v4 core architecture](https://github.com/Uniswap/v4-core). Settlement swaps
 also enforce an oracle-derived per-hop execution-price floor and a bounded size, but
 public submission retains residual sandwich risk inside the configured tolerance.
-Idle-only withdrawals remain available during oracle or pool incidents.
+Withdrawals from pairs with no open LP liquidity remain available during oracle or pool
+incidents. Idle tokens held alongside an open shared LP position are still economically
+LP-exposed and therefore require the same validated accounting before either side's claim
+can decrease.
 
 The standard NVDA feed, refreshed Robinhood registry snapshot, and reviewed sequencer
 waiver are recorded. The finalized canary policy, its detached hash, pinned live
@@ -202,8 +221,10 @@ as an executable manifest.
 ## Boosted pUSDG integration
 
 The pToken integration should read only `accountedAssets(pairId, token)` in exchange-rate
-accounting, use `liquidAssets` as its conservative immediately available amount, and
-validate itself through `sideAccount(pairId, token)`. A withdrawal must apply
+accounting, use `liquidAssets` as the in-vault idle amount, and validate itself through
+`sideAccount(pairId, token)`. Idle is only unconditionally withdrawable when no LP
+liquidity remains; active LP exposure makes the withdrawal oracle- and pool-guarded. A
+withdrawal must apply
 `(returned, realizedLoss)` atomically before completing a borrow or redemption. The
 generic sibling `IBoostedYieldAdapter` cannot communicate that loss and must not be wired
 directly to this vault. The dedicated `RobinhoodBoostedDelegate` in
@@ -212,6 +233,6 @@ uses the complete claim for exchange-rate accounting, uses only idle vault asset
 cash checks, and settles realized loss before completing a redemption.
 
 This code has not been independently audited. No production allocation should be
-accepted until the adapter remediation is upgraded and verified on-chain, a post-upgrade
-canary including guardian emergency removal is completed and drained, the pair is
-re-paused after testing, and the external security review is complete.
+accepted until both the adapter and vault remediations are upgraded and verified on-chain,
+a post-upgrade canary including guardian emergency removal is completed and drained, the
+pair is re-paused after testing, and the external security review is complete.
