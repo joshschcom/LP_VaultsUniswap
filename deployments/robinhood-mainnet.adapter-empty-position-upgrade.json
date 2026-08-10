@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "status": "REVIEWED_PENDING_TIMELOCK",
+  "preparedAtUtc": "2026-08-10T14:54:47Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "source": {
+    "repository": "joshschcom/LP_VaultsUniswap",
+    "branch": "robinhood-vault-canary",
+    "commitSha": "c0a75d2bd18841b7995bd163dad032331511caf4",
+    "almanaxScanId": "403fead9-54d2-4cea-b47c-1b79b03f0836",
+    "almanaxActiveFindings": 0,
+    "verification": {
+      "localTestsPassed": 72,
+      "pinnedRobinhoodForkTestsPassed": 7,
+      "adapterRuntimeSizeBytes": 16745,
+      "contractSizeLimitMarginBytes": 7831
+    }
+  },
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposerAndExecutor": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "adapter": {
+    "proxy": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3",
+    "proxyAdmin": "0x5a345842E3304EE97360de1C61699BA0Efea906b",
+    "proxyAdminOwner": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "proxyAdminUpgradeInterfaceVersion": "5.0.0",
+    "currentImplementation": "0xe24Eb4f6B95110b5Dc0F8232C54405Ee594aBA88",
+    "replacementImplementation": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",
+    "replacementRuntimeCodeHash": "0x3cb954f31b87bc3ed6c253c8d038db929070a4cc4952a3e5287192965c145b8e",
+    "replacementInitializerLocked": true,
+    "storageLayoutChanged": false,
+    "upgradeCallDataIsEmpty": true
+  },
+  "implementationDeployment": {
+    "deployer": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "deployerNonce": 39,
+    "transactionHash": "0x79abb2f2d08fa2b68a30acabc6f1c49caa5ddba386e4b8f519fd016bb4f67657",
+    "contractAddress": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",
+    "blockNumber": 32884671,
+    "blockHash": "0xedf69a11c6cc453af94d7cac79b876eaa2e4890c48d4fdc62a46d53d282d3f45",
+    "blockTimestampUtc": "2026-08-10T14:52:21Z",
+    "receiptStatus": 1,
+    "gasUsed": 3800546,
+    "effectiveGasPriceWei": 26098000,
+    "paidWei": "99186649508000"
+  },
+  "preconditions": {
+    "verificationBlockNumber": 32886138,
+    "verificationBlockHash": "0xa28ed6a9d3425ce944b933bc0fd7ffc396e777d6818192814217211735738290",
+    "verificationTimestampUtc": "2026-08-10T14:54:47Z",
+    "timelockOperationState": 0,
+    "proxyStillUsesCurrentImplementation": true,
+    "replacementCodeHashMatchesTestedArtifact": true,
+    "canaryDrained": true,
+    "allocationPaused": false,
+    "swapsPaused": false,
+    "emergencyMode": false,
+    "stockPrincipal": "0",
+    "usdgPrincipal": "0",
+    "stockIdle": "0",
+    "usdgIdle": "0",
+    "positionLiquidity": "0",
+    "stockReserve": "0",
+    "usdgReserve": "0"
+  },
+  "operation": {
+    "name": "upgrade-adapter-empty-position-fee-collection-fix",
+    "target": "0x5a345842E3304EE97360de1C61699BA0Efea906b",
+    "value": "0",
+    "calldata": "0x9623609d000000000000000000000000ada73211711e4790bc83b5d6b39f47fe04d276f3000000000000000000000000145700aa1575e7fb84162d2c8c5201cf683df33500000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000",
+    "decodedCall": "upgradeAndCall(0xadA73211711e4790bc83B5d6B39f47fE04D276f3, 0x145700AA1575E7Fb84162D2c8C5201cf683df335, 0x)",
+    "predecessor": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "salt": "0x07bbaf2b38b1cf62c0b48851269f38af0d5d7800605ac570664d01f5ea541430",
+    "saltPreimage": "NVDA/USDG/CANARY:adapter-empty-position-fix:v1:c0a75d2bd18841b7995bd163dad032331511caf4",
+    "operationId": "0xe441a5a4b1b438acd752ec065f1710f300eab1731f85cea225b1f339f3f4aa88",
+    "delaySeconds": 3600
+  },
+  "expectedPostState": {
+    "implementation": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",
+    "implementationCodeHash": "0x3cb954f31b87bc3ed6c253c8d038db929070a4cc4952a3e5287192965c145b8e",
+    "proxyAdminUnchanged": true,
+    "proxyStorageUnchangedExceptImplementationSlot": true,
+    "vaultAndPairConfigurationUnchanged": true,
+    "canaryBalancesAndAccountingRemainZero": true,
+    "pauseFlagsUnchanged": true
+  },
+  "executionRequirements": [
+    "Verify this record's detached SHA-256 digest before scheduling and execution.",
+    "Require operation state 0 before scheduling and state 2 before execution.",
+    "Immediately before scheduling, verify the replacement code hash and confirm the proxy still uses the recorded current implementation.",
+    "Execute only the exact ProxyAdmin upgradeAndCall operation recorded here, with empty delegatecall data and zero value.",
+    "After execution, verify the implementation slot, runtime code hash, ProxyAdmin owner, adapter wiring, registered pair key, and drained accounting.",
+    "Run a minimal post-upgrade canary covering the empty-but-unburned NFT fee-collection regression and guardian emergency removal.",
+    "Drain the canary, burn any empty position, and timelock-pause allocation and settlement swaps before concluding the test."
+  ]
+}

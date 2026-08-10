@@ -52,12 +52,67 @@ timelock. Upgrade authority is an intentional governance trust boundary: the tim
 must be controlled by the approved multisig policy, and upgrade/ownership events must be
 monitored.
 
+## Security review scope and lines of code
+
+The proposed external-review wording currently combines the Robinhood boosted-vault
+system with the separate ERC-4626 V3 LP-vault subsystem in
+`peridot-contracts-2-5`. Counted together, that scope contains **3,820 Solidity nSLOC**:
+
+| Component | Solidity nSLOC |
+| --- | ---: |
+| Robinhood vault, v4 adapter, loss reserve, oracle, local interfaces, and math | 2,042 |
+| Robinhood boosted pUSDG delegate and vault interface | 370 |
+| Robinhood proxy and access-control helpers | 34 |
+| ERC-4626 V3 LP vault, oracle, local interfaces, and math | 1,374 |
+| **Combined scope as worded** | **3,820** |
+
+The count excludes blank lines, comment-only lines, tests, deployment scripts, generated
+artifacts, vendored OpenZeppelin/Uniswap code, and the explicitly out-of-scope Peridot
+lending core. The corresponding raw physical total is 4,502 lines. The reproducible
+source snapshots are:
+
+- `LP_VaultsUniswap` commit
+  [`c0a75d2bd18841b7995bd163dad032331511caf4`](https://github.com/joshschcom/LP_VaultsUniswap/commit/c0a75d2bd18841b7995bd163dad032331511caf4)
+- `peridot-contracts-2-5` commit
+  [`592da09a5752774f8834a3f90d768e8d1344e539`](https://github.com/PeridotFinance/peridot-contracts-2-5/commit/592da09a5752774f8834a3f90d768e8d1344e539)
+
+The Robinhood vault itself is not ERC-4626 and does not implement a withdrawal queue.
+If the engagement is intended to cover only the Robinhood vault and boosted pUSDG
+integration, the correct total is **2,446 Solidity nSLOC**; in that case, references to
+ERC-4626 accounting and withdrawal-queue handling should be removed from the submitted
+scope. The Robinhood-only review should instead cover side-specific deposit/withdrawal
+accounting, pToken exchange-rate and loss-aware redemption accounting, Uniswap v4
+position lifecycle and settlement, reserve-backed impermanent-loss coverage, oracle and
+pool-manipulation resistance, liquidity-shortfall handling, role separation, upgrades,
+and emergency controls.
+
 ## Deployment
 
-The unconfigured Robinhood mainnet vault system was deployed and independently verified
-on 2026-07-27. No pair has been registered and the vault, reserve, and adapter hold no
-NVDA or USDG. Exact addresses, transactions, source commit, and ownership checks are in
+The Robinhood mainnet vault system was deployed unconfigured and independently verified
+on 2026-07-27. The initial deployment record captures the system before pair
+registration and confirms that the vault, reserve, and adapter held no NVDA or USDG.
+Exact addresses, transactions, source commit, and ownership checks are in
 [`deployments/robinhood-mainnet.vault-system.json`](./deployments/robinhood-mainnet.vault-system.json).
+
+An `NVDA/USDG/CANARY` pair was subsequently registered with a $100 allocation cap and a
+$10 bounded settlement-swap limit. A capped mainnet cycle exercised separate stock and
+USDG deposits, full-range LP minting, rebalancing, fee checkpoints, reserve fee
+accounting, oracle-guarded liquidity removal, bounded settlement swaps, reserve-backed
+loss coverage, empty-position NFT burning, and independent withdrawals. The final
+recorded cycle state had zero principal, idle assets, LP liquidity, and reserve balance.
+
+That cycle exposed an adapter edge case: collecting fees after all liquidity had been
+removed, but before the empty NFT was burned, caused PositionManager to reject the empty
+position update. Commit `c0a75d2bd18841b7995bd163dad032331511caf4` makes fee collection
+return zero in that state and adds unit and pinned-fork regression coverage. The commit
+passed 72 local tests, seven pinned Robinhood fork tests, contract-size checks, and
+Almanax scan `403fead9-54d2-4cea-b47c-1b79b03f0836` with zero findings. This README does
+not treat that remediation as deployed until the replacement adapter implementation and
+timelocked proxy upgrade have been separately verified on-chain. The verified replacement
+deployment and exact pending timelock operation are recorded in
+[`deployments/robinhood-mainnet.adapter-empty-position-upgrade.json`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.json),
+with its detached digest in
+[`deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256).
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
@@ -156,5 +211,7 @@ directly to this vault. The dedicated `RobinhoodBoostedDelegate` in
 uses the complete claim for exchange-rate accounting, uses only idle vault assets for
 cash checks, and settles realized loss before completing a redemption.
 
-This code has not been independently audited and must remain paused for new allocation
-until Robinhood fork tests and an external security review are complete.
+This code has not been independently audited. No production allocation should be
+accepted until the adapter remediation is upgraded and verified on-chain, a post-upgrade
+canary including guardian emergency removal is completed and drained, the pair is
+re-paused after testing, and the external security review is complete.
