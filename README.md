@@ -107,9 +107,9 @@ position update. Commit `c0a75d2bd18841b7995bd163dad032331511caf4` makes fee col
 return zero in that state and adds unit and pinned-fork regression coverage. The commit
 passed 72 local tests, seven pinned Robinhood fork tests, contract-size checks, and
 Almanax scan `403fead9-54d2-4cea-b47c-1b79b03f0836` with zero findings. This README does
-not treat that remediation as deployed until the replacement adapter implementation and
-timelocked proxy upgrade have been separately verified on-chain. The verified replacement
-deployment and exact pending timelock operation are recorded in
+not treat that remediation as deployed until the scheduled adapter proxy upgrade is
+executed and separately verified on-chain. The verified replacement deployment and exact
+ready timelock operation are recorded in
 [`deployments/robinhood-mainnet.adapter-empty-position-upgrade.json`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.json),
 with its detached digest in
 [`deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256).
@@ -126,9 +126,12 @@ runtime is 23,969 bytes, 607 bytes below the EIP-170 limit. Almanax scan
 `d2370f15-89d1-4a1f-8c2f-812df7701fdd` has zero active findings. Its only result,
 `7b2b8c7c-b34e-45a4-ab6d-a5e098653ffa`, was dismissed as the intentional fail-closed
 availability tradeoff: bypassing oracle/pool validation while shared LP exposure remains
-would recreate the high-severity cross-side loss evasion. This vault remediation is not
-deployed until a separately verified replacement implementation and timelocked proxy
-upgrade are recorded and executed.
+would recreate the high-severity cross-side loss evasion. The replacement implementation
+is deployed and verified, but the remediation is not active until the exact timelocked
+proxy upgrade recorded in
+[`deployments/robinhood-mainnet.vault-shared-loss-upgrade.json`](./deployments/robinhood-mainnet.vault-shared-loss-upgrade.json)
+is executed. Its detached digest is in
+[`deployments/robinhood-mainnet.vault-shared-loss-upgrade.sha256`](./deployments/robinhood-mainnet.vault-shared-loss-upgrade.sha256).
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
