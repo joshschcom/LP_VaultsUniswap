@@ -139,6 +139,11 @@ recorded in
 [`deployments/robinhood-mainnet.vault-shared-loss-upgrade.json`](./deployments/robinhood-mainnet.vault-shared-loss-upgrade.json)
 and its detached digest is in
 [`deployments/robinhood-mainnet.vault-shared-loss-upgrade.sha256`](./deployments/robinhood-mainnet.vault-shared-loss-upgrade.sha256).
+The exact capped post-upgrade canary amounts plus the independent enable and recovery-pause
+timelock operations are recorded in
+[`deployments/robinhood-mainnet.post-upgrade-canary.operations.json`](./deployments/robinhood-mainnet.post-upgrade-canary.operations.json),
+with its detached digest in
+[`deployments/robinhood-mainnet.post-upgrade-canary.operations.sha256`](./deployments/robinhood-mainnet.post-upgrade-canary.operations.sha256).
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
