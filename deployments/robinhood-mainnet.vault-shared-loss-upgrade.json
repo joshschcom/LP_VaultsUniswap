@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "SCHEDULED_WAITING",
+  "status": "EXECUTED_VERIFIED_PENDING_POST_UPGRADE_CANARY",
   "preparedAtUtc": "2026-08-11T05:55:29Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
@@ -119,6 +119,67 @@
     "verifiedAtBlockNumber": 33439318,
     "verifiedAtBlockHash": "0x07ae1c9996753dd27b9a3a339001e173647e7021edcb9cf3641a361e13ed48cb",
     "proxyStillUsesCurrentImplementation": true
+  },
+  "execution": {
+    "transactionHash": "0x1969b9405a0eedb408938f3d4715af34f8dc6e85585f6a456798fee73d0ab7e9",
+    "blockNumber": 33534542,
+    "blockHash": "0xd8573529658272075c56bd61ded2d2395b8866ff1e52457d56846813d9f27bcc",
+    "executedAtUtc": "2026-08-11T08:56:24Z",
+    "receiptStatus": 1,
+    "gasUsed": 57120,
+    "effectiveGasPriceWei": 27158000,
+    "paidWei": "1551264960000",
+    "operationState": 3
+  },
+  "postExecutionVerification": {
+    "verificationBlockNumber": 33534930,
+    "verificationBlockHash": "0xec2778c5c6139eb83f9acdea15cc88d0061c58c4df09bb34dc5248cfb5a0ce52",
+    "verificationTimestampUtc": "2026-08-11T08:57:03Z",
+    "timelockOperationState": 3,
+    "implementation": "0xEF3F12c9D60bc86484dac6250BCC25d784Ba200B",
+    "implementationSlotMatchesRecord": true,
+    "runtimeCodeHash": "0x82488738fbf2fad4520aa28fa8b1451a580ad208d328a741fa268da8c64435ac",
+    "runtimeCodeHashMatchesTestedArtifact": true,
+    "proxyAdminOwner": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "proxyAdminUpgradeInterfaceVersion": "5.0.0",
+    "vaultWiring": {
+      "oracleGuard": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+      "lossReserve": "0x806b182B050f7EcF908758dD6bBF91DB8B2212aF",
+      "liquidityAdapter": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3"
+    },
+    "accessControl": {
+      "timelockHasDefaultAdminRole": true,
+      "timelockHasConfigRole": true,
+      "operationalEoaHasDefaultAdminRole": false,
+      "operationalEoaHasConfigRole": false,
+      "operationalEoaHasKeeperRole": true,
+      "operationalEoaHasGuardianRole": true
+    },
+    "pairConfigurationUnchanged": true,
+    "aggregateUsdgDepositCap": "100000000000000000000",
+    "adapterImplementation": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",
+    "adapterUpgradeOperationState": 3,
+    "canary": {
+      "allocationPaused": true,
+      "swapsPaused": true,
+      "emergencyMode": false,
+      "stockPrincipal": "0",
+      "usdgPrincipal": "0",
+      "stockIdle": "0",
+      "usdgIdle": "0",
+      "positionTokenId": "0",
+      "positionLiquidity": "0",
+      "stockReserve": "0",
+      "usdgReserve": "0",
+      "vaultStockBalance": "0",
+      "vaultUsdgBalance": "0",
+      "adapterStockBalance": "0",
+      "adapterUsdgBalance": "0",
+      "reserveStockBalance": "0",
+      "reserveUsdgBalance": "0",
+      "drained": true
+    },
+    "postUpgradeCanaryStatus": "PENDING_COMBINED_VAULT_AND_ADAPTER_CANARY"
   },
   "expectedPostState": {
     "implementation": "0xEF3F12c9D60bc86484dac6250BCC25d784Ba200B",

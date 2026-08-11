@@ -129,11 +129,15 @@ runtime is 23,969 bytes, 607 bytes below the EIP-170 limit. Almanax scan
 `d2370f15-89d1-4a1f-8c2f-812df7701fdd` has zero active findings. Its only result,
 `7b2b8c7c-b34e-45a4-ab6d-a5e098653ffa`, was dismissed as the intentional fail-closed
 availability tradeoff: bypassing oracle/pool validation while shared LP exposure remains
-would recreate the high-severity cross-side loss evasion. The replacement implementation
-is deployed and verified, but the remediation is not active until the exact timelocked
-proxy upgrade recorded in
+would recreate the high-severity cross-side loss evasion. The vault proxy upgrade was
+executed and independently verified on-chain on 2026-08-11: the live proxy uses the
+reviewed implementation, its runtime code hash matches the tested artifact, governance
+roles and dependency wiring are unchanged, and the pair remains paused and fully drained.
+The combined post-upgrade vault and adapter canary remains pending. The replacement
+deployment, timelock operation, execution receipt, and pinned post-execution checks are
+recorded in
 [`deployments/robinhood-mainnet.vault-shared-loss-upgrade.json`](./deployments/robinhood-mainnet.vault-shared-loss-upgrade.json)
-is executed. Its detached digest is in
+and its detached digest is in
 [`deployments/robinhood-mainnet.vault-shared-loss-upgrade.sha256`](./deployments/robinhood-mainnet.vault-shared-loss-upgrade.sha256).
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
