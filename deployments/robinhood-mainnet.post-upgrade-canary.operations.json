@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "REVIEWED_PENDING_SCHEDULE",
+  "status": "SCHEDULED_WAITING",
   "preparedAtUtc": "2026-08-11T09:05:06Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
@@ -84,6 +84,19 @@
       "saltPreimage": "NVDA/USDG/CANARY:post-upgrade-enable:v1:1d7492a3df0fdab547d0ee2b7c81d438984db3c5",
       "operationId": "0x70f7f9dca070dab555a592877e51599f66ede6bdee0b618c81fb7b1b946a50cf",
       "delaySeconds": 3600,
+      "scheduleExecution": {
+        "transactionHash": "0x4eecd7637b423904f09767b855fe3b625763e384a63527461f26b7c3c73d5ffc",
+        "blockNumber": 33548571,
+        "blockHash": "0xe1bada8507c39c0f35099ab9b539e403a33c3e6c78bb9bfc473e2b134e67df3d",
+        "scheduledAtUtc": "2026-08-11T09:19:52Z",
+        "readyAtTimestamp": 1786443592,
+        "readyAtUtc": "2026-08-11T10:19:52Z",
+        "receiptStatus": 1,
+        "gasUsed": 57558,
+        "effectiveGasPriceWei": 27000000,
+        "paidWei": "1554066000000",
+        "verifiedOperationState": 1
+      },
       "expectedPostState": {
         "allocationPaused": false,
         "swapsPaused": false,
@@ -102,6 +115,19 @@
       "saltPreimage": "NVDA/USDG/CANARY:post-upgrade-final-pause:v1:1d7492a3df0fdab547d0ee2b7c81d438984db3c5",
       "operationId": "0x307e583da5ccc450c63245bc9cb5a8194c3048768556e609659e8fb856988450",
       "delaySeconds": 3600,
+      "scheduleExecution": {
+        "transactionHash": "0x3d9339f33516f04729fd42d544c9a62a4a23b629b5d048dc6db58bb68e90a24e",
+        "blockNumber": 33548788,
+        "blockHash": "0x52a3ed03d5263217029a08ac16e5465ea1fa6df06efd18d75811b0022523bf3e",
+        "scheduledAtUtc": "2026-08-11T09:20:14Z",
+        "readyAtTimestamp": 1786443614,
+        "readyAtUtc": "2026-08-11T10:20:14Z",
+        "receiptStatus": 1,
+        "gasUsed": 57582,
+        "effectiveGasPriceWei": 27324000,
+        "paidWei": "1573370568000",
+        "verifiedOperationState": 1
+      },
       "expectedPostState": {
         "allocationPaused": true,
         "swapsPaused": true,
