@@ -5,6 +5,7 @@ import { Script } from "forge-std/Script.sol";
 import { console2 } from "forge-std/console2.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { RobinhoodBoostedVault } from "../src/RobinhoodBoostedVault.sol";
 import { StrategyLossReserve } from "../src/StrategyLossReserve.sol";
@@ -17,6 +18,7 @@ import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapt
  */
 contract RunNvdaCanary is Script {
     using SafeERC20 for IERC20;
+    using SafeCast for uint256;
 
     uint256 internal constant ROBINHOOD_CHAIN_ID = 4663;
     bytes32 public constant PAIR_ID = keccak256("NVDA/USDG/CANARY");
@@ -74,6 +76,10 @@ contract RunNvdaCanary is Script {
             vm.startBroadcast(actor);
             vault.checkpoint(PAIR_ID, _deadline(config));
             vm.stopBroadcast();
+        } else if (action == keccak256("collect-fees")) {
+            _collectFees(vault, actor, config);
+        } else if (action == keccak256("emergency-decrease")) {
+            _emergencyDecrease(vault, actor, config);
         } else if (action == keccak256("withdraw-stock")) {
             _withdraw(vault, actor, config.stockAccount, NVDA, "CANARY_MAX_STOCK_AMOUNT", config);
         } else if (action == keccak256("withdraw-usdg")) {
@@ -164,6 +170,44 @@ contract RunNvdaCanary is Script {
         console2.log("withdraw requested", amount);
         console2.log("withdraw returned", returned);
         console2.log("withdraw realized loss", realizedLoss);
+    }
+
+    function _collectFees(
+        RobinhoodBoostedVault vault,
+        address actor,
+        RobinhoodBoostedVault.PairConfig memory config
+    ) internal {
+        vm.startBroadcast(actor);
+        (uint256 stockFees, uint256 usdgFees) = vault.collectFees(PAIR_ID, _deadline(config));
+        vm.stopBroadcast();
+
+        console2.log("stock fees collected", stockFees);
+        console2.log("USDG fees collected", usdgFees);
+    }
+
+    function _emergencyDecrease(
+        RobinhoodBoostedVault vault,
+        address actor,
+        RobinhoodBoostedVault.PairConfig memory config
+    ) internal {
+        IUniswapV4PairedAdapter.PositionState memory position =
+            vault.liquidityAdapter().positionState(PAIR_ID);
+        uint256 liquidity = vm.envOr("LIQUIDITY", uint256(position.liquidity));
+        uint256 maxLiquidity = vm.envUint("CANARY_MAX_LIQUIDITY");
+        require(
+            liquidity != 0 && liquidity <= position.liquidity && liquidity <= maxLiquidity,
+            "CANARY_LIQUIDITY_LIMIT"
+        );
+        require(
+            !vm.envOr("REQUIRE_FULL_POSITION", true) || liquidity == position.liquidity,
+            "FULL_POSITION_REQUIRED"
+        );
+
+        vm.startBroadcast(actor);
+        vault.emergencyDecrease(PAIR_ID, liquidity.toUint128(), _deadline(config));
+        vm.stopBroadcast();
+
+        console2.log("emergency liquidity requested", liquidity);
     }
 
     function _withdrawReserve(
