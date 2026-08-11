@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "REVIEWED_PENDING_TIMELOCK",
+  "status": "SCHEDULED_WAITING",
   "preparedAtUtc": "2026-08-11T05:55:29Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
@@ -103,6 +103,22 @@
     "saltPreimage": "NVDA/USDG/CANARY:vault-shared-lp-loss-fix:v1:0bcf8c993906aedd23a59a2c73b88c169d90fe55",
     "operationId": "0x2de69423a24742426583008988e3fb380f553d0f54d0b8fe59e0bd3c2399b6b6",
     "delaySeconds": 3600
+  },
+  "scheduleExecution": {
+    "transactionHash": "0x5d865ff16532855cd2edee81453dc7ff05f6cf042c169a2ed288add48a327c9f",
+    "blockNumber": 33439318,
+    "blockHash": "0x07ae1c9996753dd27b9a3a339001e173647e7021edcb9cf3641a361e13ed48cb",
+    "scheduledAtUtc": "2026-08-11T06:17:21Z",
+    "readyAtTimestamp": 1786432641,
+    "readyAtUtc": "2026-08-11T07:17:21Z",
+    "receiptStatus": 1,
+    "gasUsed": 57836,
+    "effectiveGasPriceWei": 27712000,
+    "paidWei": "1602751232000",
+    "verifiedOperationState": 1,
+    "verifiedAtBlockNumber": 33439318,
+    "verifiedAtBlockHash": "0x07ae1c9996753dd27b9a3a339001e173647e7021edcb9cf3641a361e13ed48cb",
+    "proxyStillUsesCurrentImplementation": true
   },
   "expectedPostState": {
     "implementation": "0xEF3F12c9D60bc86484dac6250BCC25d784Ba200B",
