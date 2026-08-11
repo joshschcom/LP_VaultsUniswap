@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "SCHEDULED_READY",
+  "status": "EXECUTED_VERIFIED_PENDING_POST_UPGRADE_CANARY",
   "preparedAtUtc": "2026-08-10T14:54:47Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
@@ -93,6 +93,64 @@
     "verifiedAtBlockNumber": 33426179,
     "verifiedAtBlockHash": "0x68dba6cdb6056507b5a1ba7ff1975c9a6c2dfeb903b26494a2b519d9669622da",
     "proxyStillUsesCurrentImplementation": true
+  },
+  "execution": {
+    "transactionHash": "0x4a23aeb6b8e734a1ada8d720f78d1ea0909a68389caffbc4942f18a75e26f3aa",
+    "blockNumber": 33447139,
+    "blockHash": "0xfa797ec4853ad228113cba112fd6e429bc542feee8fe425b17ee2fdca15d5b08",
+    "executedAtUtc": "2026-08-11T06:30:24Z",
+    "receiptStatus": 1,
+    "gasUsed": 57096,
+    "effectiveGasPriceWei": 27834000,
+    "paidWei": "1589210064000",
+    "operationState": 3
+  },
+  "postExecutionVerification": {
+    "verificationBlockNumber": 33448510,
+    "verificationBlockHash": "0x579c26e59a72aa5253f2f10d792c09883760cec22527245f1337a485f8e44d3f",
+    "verificationTimestampUtc": "2026-08-11T06:32:42Z",
+    "timelockOperationState": 3,
+    "implementation": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",
+    "implementationSlotMatchesRecord": true,
+    "runtimeCodeHash": "0x3cb954f31b87bc3ed6c253c8d038db929070a4cc4952a3e5287192965c145b8e",
+    "runtimeCodeHashMatchesTestedArtifact": true,
+    "proxyAdminOwner": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "proxyAdminUpgradeInterfaceVersion": "5.0.0",
+    "adapterWiring": {
+      "vault": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+      "poolManager": "0x8366a39CC670B4001A1121B8F6A443A643e40951",
+      "positionManager": "0x58daec3116aae6D93017bAAea7749052E8a04fA7",
+      "universalRouter": "0x8876789976dEcBfCbBbe364623C63652db8C0904",
+      "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+    },
+    "registeredPoolKey": {
+      "currency0": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "currency1": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+      "fee": 3000,
+      "tickSpacing": 60,
+      "hooks": "0x0000000000000000000000000000000000000000"
+    },
+    "positionState": {
+      "tokenId": "0",
+      "liquidity": "0",
+      "stockAmount": "0",
+      "usdgAmount": "0"
+    },
+    "vaultReferencesAdapter": true,
+    "canary": {
+      "allocationPaused": true,
+      "swapsPaused": true,
+      "emergencyMode": false,
+      "stockPrincipal": "0",
+      "usdgPrincipal": "0",
+      "stockIdle": "0",
+      "usdgIdle": "0",
+      "positionLiquidity": "0",
+      "stockReserve": "0",
+      "usdgReserve": "0",
+      "drained": true
+    },
+    "postUpgradeCanaryStatus": "PENDING_COMBINED_VAULT_AND_ADAPTER_CANARY_AFTER_VAULT_UPGRADE"
   },
   "expectedPostState": {
     "implementation": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",

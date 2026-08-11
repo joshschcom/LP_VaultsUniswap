@@ -106,10 +106,13 @@ removed, but before the empty NFT was burned, caused PositionManager to reject t
 position update. Commit `c0a75d2bd18841b7995bd163dad032331511caf4` makes fee collection
 return zero in that state and adds unit and pinned-fork regression coverage. The commit
 passed 72 local tests, seven pinned Robinhood fork tests, contract-size checks, and
-Almanax scan `403fead9-54d2-4cea-b47c-1b79b03f0836` with zero findings. This README does
-not treat that remediation as deployed until the scheduled adapter proxy upgrade is
-executed and separately verified on-chain. The verified replacement deployment and exact
-ready timelock operation are recorded in
+Almanax scan `403fead9-54d2-4cea-b47c-1b79b03f0836` with zero findings. The adapter proxy
+upgrade was executed and independently verified on-chain on 2026-08-11: the live proxy
+uses the reviewed implementation, its runtime code hash matches the tested artifact,
+ProxyAdmin ownership remains with the timelock, and its wiring and registered pool key are
+unchanged. The combined post-upgrade canary remains pending until the vault upgrade is
+active. The replacement deployment, timelock operation, execution receipt, and pinned
+post-execution checks are recorded in
 [`deployments/robinhood-mainnet.adapter-empty-position-upgrade.json`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.json),
 with its detached digest in
 [`deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256`](./deployments/robinhood-mainnet.adapter-empty-position-upgrade.sha256).
