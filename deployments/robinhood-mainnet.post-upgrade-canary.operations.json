@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "SCHEDULED_WAITING",
+  "status": "CANARY_ENABLED_EMPTY_RECOVERY_READY",
   "preparedAtUtc": "2026-08-11T09:05:06Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
@@ -96,6 +96,25 @@
         "effectiveGasPriceWei": 27000000,
         "paidWei": "1554066000000",
         "verifiedOperationState": 1
+      },
+      "execution": {
+        "transactionHash": "0xb56224101560dcba302291deaa37a2ebb41b4457481feec0c21f59c698cf8616",
+        "blockNumber": 34529411,
+        "blockHash": "0x959a554a312401cf7f01578373a6dce1a10979b2abd74d1afe0ab920c9ba45b2",
+        "executedAtUtc": "2026-08-12T12:29:57Z",
+        "receiptStatus": 1,
+        "gasUsed": 56987,
+        "effectiveGasPriceWei": 50766000,
+        "paidWei": "2893002042000",
+        "operationState": 3,
+        "verifiedAtBlockNumber": 34550390,
+        "verifiedAtBlockHash": "0x7cc323e17528d5be9b6d9858e1591345d13335669bbdeedb56fefdd516009b71",
+        "verifiedAtUtc": "2026-08-12T13:04:55Z",
+        "allocationPaused": false,
+        "swapsPaused": false,
+        "emergencyMode": false,
+        "canaryDrained": true,
+        "recoveryPauseOperationState": 2
       },
       "expectedPostState": {
         "allocationPaused": false,
