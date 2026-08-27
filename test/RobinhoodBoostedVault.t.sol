@@ -187,8 +187,71 @@ contract RobinhoodBoostedVaultTest is Test {
         vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp + 60);
 
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 20e18);
+        // Custody still holds ten idle stock, but none of it is reachable while the
+        // oracle is down and LP liquidity remains open.
         assertEq(vault.liquidAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
         assertEq(stock.balanceOf(receiver), 0);
+    }
+
+    function testWithdrawableAssetsReportsIdleWhenNoLiquidityIsOpen() external {
+        _depositPair(10e18, 1_000e6);
+        oracle.setShouldRevert(true);
+
+        // No position is open, so the oracle-free idle path stays available.
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(usdg)), 1_000e6);
+    }
+
+    function testWithdrawableAssetsTracksOracleHealthWhileLiquidityIsOpen() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        uint256 idle = vault.liquidAssets(PAIR_ID, address(stock));
+        assertGt(idle, 0);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), idle);
+
+        oracle.setShouldRevert(true);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
+
+        oracle.setShouldRevert(false);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), idle);
+    }
+
+    function testWithdrawableAssetsIsZeroInEmergencyModeWithOpenLiquidity() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        vm.prank(guardian);
+        vault.setPairPause(PAIR_ID, true, true, true);
+
+        // withdrawForSide reverts EmergencyMode on the guarded path, so no idle is reachable.
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
+    }
+
+    function testWithdrawableAssetsNeverExceedsRemainingPrincipal() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Shared loss scales principal below the idle balance still held in custody.
+        oracle.setPrices(200e18, 1e18);
+        adapter.setPosition(PAIR_ID, 7e18, 1_400e6);
+        vm.prank(keeper);
+        vault.checkpoint(PAIR_ID, block.timestamp + 60);
+
+        uint256 principal = vault.accountedAssets(PAIR_ID, address(stock));
+        uint256 withdrawable = vault.withdrawableAssets(PAIR_ID, address(stock));
+        assertLe(withdrawable, principal);
+        assertLe(withdrawable, vault.liquidAssets(PAIR_ID, address(stock)));
+    }
+
+    function testWithdrawableAssetsRejectsUnsupportedToken() external {
+        _depositPair(10e18, 1_000e6);
+        vm.expectRevert(RobinhoodBoostedVault.UnsupportedToken.selector);
+        vault.withdrawableAssets(PAIR_ID, address(0xBEEF));
     }
 
     function testWithdrawalUnwindsOnlyNeededSlice() external {

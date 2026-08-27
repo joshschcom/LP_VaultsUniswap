@@ -280,6 +280,43 @@ contract RobinhoodBoostedVault is
         revert UnsupportedToken();
     }
 
+    /// @notice Assets for one side that `withdrawForSide` can return in this block.
+    /// @dev Idle is unconditionally withdrawable only once the position is closed. While any
+    ///      LP liquidity remains, every principal reduction routes through the oracle-guarded
+    ///      settle path, so idle counts here only when that path would currently pass.
+    ///      Integrating pTokens must use this, not `liquidAssets`, for cash and utilization
+    ///      accounting; `liquidAssets` reports custody and overstates what is reachable.
+    function withdrawableAssets(bytes32 pairId, address token) external view returns (uint256) {
+        PairConfig storage config = _config(pairId);
+        PairLedger storage pairLedger = _ledger[pairId];
+        uint256 available;
+        if (token == config.stockToken) {
+            available = Math.min(pairLedger.stockIdle, pairLedger.stockPrincipal);
+        } else if (token == config.usdg) {
+            available = Math.min(pairLedger.usdgIdle, pairLedger.usdgPrincipal);
+        } else {
+            revert UnsupportedToken();
+        }
+        if (available == 0) return 0;
+
+        try liquidityAdapter.positionState(pairId) returns (
+            IUniswapV4PairedAdapter.PositionState memory position
+        ) {
+            if (position.liquidity == 0) return available;
+        } catch {
+            return 0;
+        }
+
+        if (config.emergencyMode) return 0;
+        try oracleGuard.validatePoolPrice(pairId, liquidityAdapter.poolKey(pairId)) returns (
+            uint256, uint256, uint160
+        ) {
+            return available;
+        } catch {
+            return 0;
+        }
+    }
+
     function totalPairAssets(bytes32 pairId)
         public
         view
