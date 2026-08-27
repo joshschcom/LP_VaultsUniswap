@@ -258,10 +258,20 @@ contract RobinhoodBoostedVault is
     }
 
     function accountedAssets(bytes32 pairId, address token) external view returns (uint256) {
+        (, uint256 principal) = _sideAmounts(pairId, token);
+        return principal;
+    }
+
+    /// @dev Shared token dispatch for the per-side views. Reverts on an unsupported token.
+    function _sideAmounts(bytes32 pairId, address token)
+        private
+        view
+        returns (uint256 idle, uint256 principal)
+    {
         PairConfig storage config = _config(pairId);
         PairLedger storage pairLedger = _ledger[pairId];
-        if (token == config.stockToken) return pairLedger.stockPrincipal;
-        if (token == config.usdg) return pairLedger.usdgPrincipal;
+        if (token == config.stockToken) return (pairLedger.stockIdle, pairLedger.stockPrincipal);
+        if (token == config.usdg) return (pairLedger.usdgIdle, pairLedger.usdgPrincipal);
         revert UnsupportedToken();
     }
 
@@ -273,11 +283,8 @@ contract RobinhoodBoostedVault is
     }
 
     function liquidAssets(bytes32 pairId, address token) external view returns (uint256) {
-        PairConfig storage config = _config(pairId);
-        PairLedger storage pairLedger = _ledger[pairId];
-        if (token == config.stockToken) return pairLedger.stockIdle;
-        if (token == config.usdg) return pairLedger.usdgIdle;
-        revert UnsupportedToken();
+        (uint256 idle,) = _sideAmounts(pairId, token);
+        return idle;
     }
 
     /// @notice Assets for one side that `withdrawForSide` can return in this block.
@@ -287,16 +294,8 @@ contract RobinhoodBoostedVault is
     ///      Integrating pTokens must use this, not `liquidAssets`, for cash and utilization
     ///      accounting; `liquidAssets` reports custody and overstates what is reachable.
     function withdrawableAssets(bytes32 pairId, address token) external view returns (uint256) {
-        PairConfig storage config = _config(pairId);
-        PairLedger storage pairLedger = _ledger[pairId];
-        uint256 available;
-        if (token == config.stockToken) {
-            available = Math.min(pairLedger.stockIdle, pairLedger.stockPrincipal);
-        } else if (token == config.usdg) {
-            available = Math.min(pairLedger.usdgIdle, pairLedger.usdgPrincipal);
-        } else {
-            revert UnsupportedToken();
-        }
+        (uint256 idle, uint256 principal) = _sideAmounts(pairId, token);
+        uint256 available = Math.min(idle, principal);
         if (available == 0) return 0;
 
         try liquidityAdapter.positionState(pairId) returns (
@@ -307,10 +306,17 @@ contract RobinhoodBoostedVault is
             return 0;
         }
 
-        if (config.emergencyMode) return 0;
-        try oracleGuard.validatePoolPrice(pairId, liquidityAdapter.poolKey(pairId)) returns (
-            uint256, uint256, uint160
-        ) {
+        if (_config(pairId).emergencyMode) return 0;
+        // The pool key is read inside its own try: evaluated as an argument to the guarded
+        // call below, an adapter-side revert would escape and make this view revert rather
+        // than report nothing withdrawable.
+        PoolKey memory key;
+        try liquidityAdapter.poolKey(pairId) returns (PoolKey memory poolKey_) {
+            key = poolKey_;
+        } catch {
+            return 0;
+        }
+        try oracleGuard.validatePoolPrice(pairId, key) returns (uint256, uint256, uint160) {
             return available;
         } catch {
             return 0;
