@@ -138,6 +138,10 @@ contract ConfigureNvdaPair is Script {
         config.maxStaleness = uint64(vm.envUint("TRADING_SESSION_MAX_STALENESS"));
         config.sequencerGracePeriod = uint64(vm.envOr("SEQUENCER_GRACE_PERIOD", uint256(3600)));
         config.maxPriceDeviationBps = uint16(vm.envOr("MAX_PRICE_DEVIATION_BPS", uint256(300)));
+        // Exits tolerate a wider pool/oracle gap than allocation: a deviation d moves a
+        // full-range position's amounts by only about d/2, so 600 bps is covered by the
+        // 400 bps removal tolerance with the 100 bps operational buffer to spare.
+        config.maxRemovalDeviationBps = uint16(vm.envOr("MAX_REMOVAL_DEVIATION_BPS", uint256(600)));
         config.stockDecimals = IERC20Metadata(stock).decimals();
         config.usdgDecimals = IERC20Metadata(usdg).decimals();
         config.stockFeedDecimals = config.stockFeed.decimals();

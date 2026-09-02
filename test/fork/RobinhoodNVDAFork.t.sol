@@ -148,7 +148,8 @@ contract RobinhoodNVDAForkTest is Test {
                 stockFeedDecimals: 8,
                 usdgFeedDecimals: 0,
                 usdgFixedOne: true,
-                enabled: true
+                enabled: true,
+                maxRemovalDeviationBps: 600
             })
         );
 
@@ -395,7 +396,8 @@ contract RobinhoodNVDAForkTest is Test {
             stockFeedDecimals: 8,
             usdgFeedDecimals: 0,
             usdgFixedOne: true,
-            enabled: true
+            enabled: true,
+            maxRemovalDeviationBps: 600
         });
     }
 

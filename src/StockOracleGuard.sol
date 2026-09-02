@@ -29,6 +29,8 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
     bytes32 public constant CONFIG_ROLE = keccak256("CONFIG_ROLE");
     uint256 internal constant BPS = 10_000;
     uint64 public constant MIN_SEQUENCER_GRACE_PERIOD = 1 hours;
+    /// @dev A removal bound above this cannot be covered by any permitted removal tolerance.
+    uint16 public constant MAX_REMOVAL_DEVIATION_BPS = 2_000;
 
     struct FeedConfig {
         address stockToken;
@@ -46,6 +48,9 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         uint8 usdgFeedDecimals;
         bool usdgFixedOne;
         bool enabled;
+        // Appended: packs into the free bytes of the preceding slot, so existing pairs read
+        // zero. Zero means "no separate removal bound" and falls back to maxPriceDeviationBps.
+        uint16 maxRemovalDeviationBps;
     }
 
     IPoolManager public poolManager;
@@ -95,6 +100,9 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
                 || (!config.usdgFixedOne && config.usdgFeedDecimals > 36)
                 || (address(config.sequencerFeed) != address(0)
                     && config.sequencerGracePeriod < MIN_SEQUENCER_GRACE_PERIOD)
+                || (config.maxRemovalDeviationBps != 0
+                    && (config.maxRemovalDeviationBps < config.maxPriceDeviationBps
+                        || config.maxRemovalDeviationBps > MAX_REMOVAL_DEVIATION_BPS))
         ) revert InvalidConfiguration();
         if (!config.usdgFixedOne && address(config.usdgFeed) == address(0)) {
             revert InvalidConfiguration();
@@ -134,6 +142,18 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         return config.maxPriceDeviationBps;
     }
 
+    /// @notice The deviation bound applied to exits, which is at least the allocation bound.
+    function maxRemovalDeviationBps(bytes32 pairId) external view override returns (uint16) {
+        FeedConfig storage config = _feeds[pairId];
+        if (config.stockToken == address(0)) revert PairNotEnabled();
+        return _removalBound(config);
+    }
+
+    function _removalBound(FeedConfig storage config) internal view returns (uint16) {
+        uint16 bound = config.maxRemovalDeviationBps;
+        return bound == 0 ? config.maxPriceDeviationBps : bound;
+    }
+
     function pricesUSD18(bytes32 pairId)
         public
         view
@@ -154,10 +174,34 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
             : _read(config.usdgFeed, config.usdgFeedDecimals, config.maxStaleness);
     }
 
+    /// @notice Validates the pool for allocation, using the tight deviation bound.
+    /// @dev Blocking allocation is cheap: the keeper simply does not add liquidity.
     function validatePoolPrice(bytes32 pairId, PoolKey calldata key)
         external
         view
         override
+        returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg, uint160 referenceSqrtPriceX96)
+    {
+        return _validate(pairId, key, _feeds[pairId].maxPriceDeviationBps);
+    }
+
+    /// @notice Validates the pool for an exit, using the wider removal bound.
+    /// @dev Value on removal is protected by the adapter's oracle-anchored amount floors, not
+    ///      by this check, and a pool deviation d moves a full-range position's amounts by only
+    ///      about d/2. Applying the allocation bound here would block exits far tighter than
+    ///      value protection requires, exactly when holders most need to leave.
+    function validateRemovalPrice(bytes32 pairId, PoolKey calldata key)
+        external
+        view
+        override
+        returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg, uint160 referenceSqrtPriceX96)
+    {
+        return _validate(pairId, key, _removalBound(_feeds[pairId]));
+    }
+
+    function _validate(bytes32 pairId, PoolKey calldata key, uint16 boundBps)
+        internal
+        view
         returns (uint256 oracleStockInUsdg, uint256 poolStockInUsdg, uint160 referenceSqrtPriceX96)
     {
         FeedConfig storage config = _feeds[pairId];
@@ -185,7 +229,7 @@ contract StockOracleGuard is Initializable, AccessControlUpgradeable, IStockOrac
         uint256 difference = poolStockInUsdg > oracleStockInUsdg
             ? poolStockInUsdg - oracleStockInUsdg
             : oracleStockInUsdg - poolStockInUsdg;
-        if (Math.mulDiv(difference, BPS, oracleStockInUsdg) > config.maxPriceDeviationBps) {
+        if (Math.mulDiv(difference, BPS, oracleStockInUsdg) > boundBps) {
             revert PriceDeviation(oracleStockInUsdg, poolStockInUsdg);
         }
     }

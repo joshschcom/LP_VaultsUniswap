@@ -171,7 +171,7 @@ library SettlementLib {
         uint256 outputBalanceBefore = IERC20(outputToken).balanceOf(address(this));
         // Revalidate immediately before the external swap. This catches a pool that
         // was moved outside the oracle deviation bound by any preceding external call.
-        p.oracleGuard.validatePoolPrice(p.pairId, p.liquidityAdapter.poolKey(p.pairId));
+        p.oracleGuard.validateRemovalPrice(p.pairId, p.liquidityAdapter.poolKey(p.pairId));
         IERC20(tokenIn).forceApprove(address(p.liquidityAdapter), amountIn);
         (uint256 used, uint256 output) =
             p.liquidityAdapter.swapExactInput(p.pairId, tokenIn, amountIn, minOut, p.deadline);

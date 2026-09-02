@@ -475,10 +475,13 @@ contract RobinhoodBoostedVaultTest is Test {
         vault.updatePairRisk(PAIR_ID, config);
     }
 
-    function testRegistrationRequiresRemovalToleranceAboveOracleDeviation() external {
-        bytes32 secondPair = keccak256("SECOND");
+    function testRegistrationRequiresRemovalToleranceToCoverHalfTheRemovalDeviation() external {
+        // A pool deviation d moves a full-range position's amounts by about d/2, so the
+        // amount tolerance must cover half the removal bound plus the operational buffer.
+        oracle.setMaxRemovalDeviationBps(600);
         PairConfig memory config = vault.pairConfig(PAIR_ID);
-        IUniswapV4PairedAdapter.RegisterPairParams memory adapterConfig =
+
+        IUniswapV4PairedAdapter.RegisterPairParams memory tooTight =
             IUniswapV4PairedAdapter.RegisterPairParams({
                 stockToken: address(stock),
                 usdg: address(usdg),
@@ -486,9 +489,47 @@ contract RobinhoodBoostedVaultTest is Test {
                 expectedPoolId: keccak256("pool"),
                 removalToleranceBps: 399
             });
-
         vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
-        vault.registerPair(secondPair, config, adapterConfig);
+        vault.registerPair(keccak256("SECOND"), config, tooTight);
+
+        // 600 / 2 + 100 = 400 is exactly sufficient.
+        IUniswapV4PairedAdapter.RegisterPairParams memory sufficient = tooTight;
+        sufficient.removalToleranceBps = 400;
+        vault.registerPair(keccak256("SECOND"), config, sufficient);
+        assertEq(vault.pairConfig(keccak256("SECOND")).stockToken, address(stock));
+    }
+
+    function testExitsToleratePoolDeviationThatBlocksAllocation() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Pool drifts past the allocation bound but stays inside the removal bound: adding
+        // liquidity must stop while holders can still get out.
+        oracle.setAllocationShouldRevert(true);
+        vm.prank(keeper);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        vm.prank(stockAccount);
+        (uint256 returned,) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 5e18, receiver, block.timestamp + 60);
+        assertEq(returned, 5e18, "exit must survive an allocation-bound breach");
+        assertEq(stock.balanceOf(receiver), 5e18);
+    }
+
+    function testExitsStillFailClosedBeyondTheRemovalBound() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Past the wider removal bound the exit must still fail closed rather than unwind
+        // against a pool the oracle cannot vouch for.
+        oracle.setRemovalShouldRevert(true);
+        vm.prank(stockAccount);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.withdrawForSide(PAIR_ID, address(stock), 5e18, receiver, block.timestamp + 60);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
     }
 
     function testFeeOnTransferToWithdrawalReceiverRevertsWithoutLedgerDrift() external {

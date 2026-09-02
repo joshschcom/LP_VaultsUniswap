@@ -153,7 +153,8 @@ contract RobinhoodBoostedVault is
         oracleGuard.validatePoolPrice(pairId, adapterConfig.poolKey);
         if (
             uint256(adapterConfig.removalToleranceBps)
-                < uint256(oracleGuard.maxPriceDeviationBps(pairId)) + REMOVAL_OPERATIONAL_BUFFER_BPS
+                < uint256(oracleGuard.maxRemovalDeviationBps(pairId)) / 2
+                    + REMOVAL_OPERATIONAL_BUFFER_BPS
         ) revert InvalidConfiguration();
         liquidityAdapter.registerPair(pairId, adapterConfig);
 
@@ -287,7 +288,7 @@ contract RobinhoodBoostedVault is
         } catch {
             return 0;
         }
-        try oracleGuard.validatePoolPrice(pairId, key) returns (uint256, uint256, uint160) {
+        try oracleGuard.validateRemovalPrice(pairId, key) returns (uint256, uint256, uint160) {
             return available;
         } catch {
             return 0;
@@ -486,7 +487,7 @@ contract RobinhoodBoostedVault is
                     _checkpointPair(pairId, config, pairLedger, deadline);
             } else {
                 PoolKey memory key = liquidityAdapter.poolKey(pairId);
-                (,, referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+                (,, referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
                 (stockPrice, usdgPrice) = oracleGuard.pricesUSD18(pairId);
                 _collectFees(pairId, config, pairLedger, deadline);
             }
@@ -532,7 +533,7 @@ contract RobinhoodBoostedVault is
         config.swapsPaused = true;
         config.emergencyMode = true;
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
         (uint256 stockPrice, uint256 usdgPrice) = oracleGuard.pricesUSD18(pairId);
         uint256 stockBalanceBefore = IERC20(config.stockToken).balanceOf(address(this));
         uint256 usdgBalanceBefore = IERC20(config.usdg).balanceOf(address(this));
@@ -621,7 +622,7 @@ contract RobinhoodBoostedVault is
         )
     {
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        (,, referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+        (,, referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
         (stockPrice, usdgPrice) = oracleGuard.pricesUSD18(pairId);
 
         _collectFees(pairId, config, pairLedger, deadline);
@@ -691,7 +692,7 @@ contract RobinhoodBoostedVault is
         );
         uint128 liquidityToRemove = uint128(Math.min(liquidityRaw, position.liquidity));
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
         uint256 stockBalanceBefore = IERC20(config.stockToken).balanceOf(address(this));
         uint256 usdgBalanceBefore = IERC20(config.usdg).balanceOf(address(this));
         (uint256 stockReceived, uint256 usdgReceived,) = liquidityAdapter.decreaseLiquidity(
