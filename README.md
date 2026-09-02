@@ -203,13 +203,26 @@ and overstates access while LP liquidity is open, and the pToken counted it as c
 consumer side landed separately in `peridot-contracts-2-5` as
 `895dc6f0c101597277c571d43f040ca6f11bfd6e`.
 
-All five commits passed the full unit suite (85 tests), the seven pinned fork tests,
-formatting and contract-size checks, and Almanax scans `06ad809f-db1c-4d1a-96a7-f3805db58499`,
+`b96914e0ff562bbaf64ca94acfbd4eef0643bcdb` then rounds the registration invariant's half
+up, so an odd removal bound cannot accept a tolerance one bp short of the amount deviation
+it must absorb, and range-checks the bound before its `uint16` cast so an out-of-range
+value cannot truncate into a plausible-looking payload.
+
+`91225bb1800f0cb537be403e4065c2b48de5d3cd` adds `UpgradeVaultSystem.s.sol`, which deploys
+the three replacements and prints the four chained timelock payloads. Order is enforced by
+review, not by the chain: the new vault calls `positionStateAt` and `validateRemovalPrice`,
+so the adapter and guard must be live before it. The removal-bound payload reads the live
+feed config and changes only that field. Simulated against mainnet, all three ProxyAdmins
+are confirmed timelock-owned and payload four decodes to the live config with only
+`maxRemovalDeviationBps` changed from 0 to 600.
+
+Every commit passed the full unit suite (86 tests), the seven pinned fork tests, formatting
+and contract-size checks, and Almanax scans `06ad809f-db1c-4d1a-96a7-f3805db58499`,
 `6734200d-2f7d-4954-98fa-aad8cab2e87b`, `397694f0-5e67-4c54-9668-482c311c6503`,
-`ebfbcb29-a99e-4ac6-86b1-79680943e4e4` and `5e251cec-ab33-40e6-b756-5b1b8822050a` with zero
-findings. The upgrade requires three new implementations plus the library and has not been
-scheduled; the post-upgrade canary, which still has never exercised guardian emergency
-removal, remains outstanding.
+`ebfbcb29-a99e-4ac6-86b1-79680943e4e4`, `76630d52-fb9d-4876-9e5a-6b6dd8c6f0db` and
+`5e251cec-ab33-40e6-b756-5b1b8822050a` with zero active findings. The upgrade requires
+three new implementations plus the library and has not been scheduled; the post-upgrade
+canary, which still has never exercised guardian emergency removal, remains outstanding.
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
