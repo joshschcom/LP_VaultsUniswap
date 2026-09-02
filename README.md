@@ -14,8 +14,16 @@ Install the exact revisions in [`dependencies.lock.json`](./dependencies.lock.js
 
 ```bash
 forge build
+forge build --sizes   # the vault is the EIP-170 constraint; check before and after changes
 forge test
 ```
+
+The vault links `SettlementLib`, so it cannot be deployed without the library. `forge test`
+and `forge script` deploy and link it automatically; a manual deployment must deploy the
+library first and pass `--libraries src/libraries/SettlementLib.sol:SettlementLib:<address>`.
+`DeployVaultSystem` reads the deployer nonce after the implementations rather than assuming
+a fixed offset, because the broadcast deploys an unlinked library ahead of the first
+contract that needs it.
 
 Set `ROBINHOOD_RPC_URL` to run the opt-in fork suite:
 
@@ -23,8 +31,10 @@ Set `ROBINHOOD_RPC_URL` to run the opt-in fork suite:
 forge test --match-path 'test/fork/*'
 ```
 
-The fork test is skipped when `ROBINHOOD_RPC_URL` is unset. It is pinned to Robinhood
-block `17091638` and verifies canonical bytecode, token/feed metadata, PoolManager versus
+The public endpoint `https://rpc.mainnet.chain.robinhood.com` serves archive state at the
+pinned block and is sufficient for the fork suite, though it is rate limited and filters
+by `User-Agent`. The fork test is skipped when `ROBINHOOD_RPC_URL` is unset. It is pinned
+to Robinhood block `17091638` and verifies canonical bytecode, token/feed metadata, PoolManager versus
 StateView, NVDA's PoolKey/PoolId, the oracle guard, Permit2 approvals, the complete
 position NFT lifecycle, swaps in both directions, and an end-to-end vault
 rebalance/checkpoint/withdrawal sequence.
@@ -36,9 +46,28 @@ rebalance/checkpoint/withdrawal sequence.
 - `UniswapV4PairedAdapter` is the only component allowed to encode PositionManager or
   Universal Router operations. Each registered pair is bound to one zero-hook PoolKey.
 - `StockOracleGuard` normalizes Chainlink prices, checks Robinhood's `oraclePaused`, and
-  validates pool/oracle deviation before allocation or settlement.
+  validates pool/oracle deviation before allocation or settlement. The bound is asymmetric:
+  `maxPriceDeviationBps` gates allocation, where refusing to add liquidity costs nothing,
+  and the wider `maxRemovalDeviationBps` gates every exit. Value on removal is protected by
+  the adapter's oracle-anchored amount floors rather than by this check, and a pool
+  deviation `d` moves a full-range position's amounts by only about `d/2`, so applying the
+  allocation bound to exits would block withdrawals far tighter than value protection
+  requires. A zero `maxRemovalDeviationBps` falls back to the allocation bound.
 - `StrategyLossReserve` holds pair-specific in-kind fee reserves and enforces per-event,
   coverage-ratio, and rolling daily limits.
+- `SettlementLib` holds the withdrawal deficit waterfall (reserve cover, then the bounded
+  oracle-floored settlement swap). It is a linked library reached by `DELEGATECALL`, so
+  storage and `address(this)` remain the vault's. It exists to keep the vault under
+  EIP-170 and must be deployed and linked before the vault implementation.
+- `VaultTypes` declares `PairConfig` and `PairLedger` at file scope so the vault and
+  `SettlementLib` can share storage pointers to them. Field order is part of the deployed
+  proxy layout: append only, never reorder.
+
+Position value has two deliberately different views. `totalPairAssets` prices the position
+at the pool's live `sqrtPriceX96` and is the market view. Everything that recognizes loss
+prices it at the oracle-derived `referenceSqrtPriceX96` via
+`UniswapV4PairedAdapter.positionStateAt`, so moving the pool inside the deviation bound
+cannot manufacture a shortfall that scales both principals down, nor mask a real one.
 
 Deposits are accepted only from the configured stock-side and USDG-side accounts. The
 pair-value and aggregate USDG caps are optional governance circuit breakers: `0` disables
@@ -145,6 +174,43 @@ timelock operations are recorded in
 with its detached digest in
 [`deployments/robinhood-mainnet.post-upgrade-canary.operations.sha256`](./deployments/robinhood-mainnet.post-upgrade-canary.operations.sha256).
 
+A third review pass addressed pool-price dependence and the exit availability window, and
+is **written and scanned but not yet deployed**. Three changes ship together as one upgrade
+because each needs vault bytecode and the vault had 217 bytes of EIP-170 headroom:
+
+- `7d2c20002f2f7c8c40e63c4cb78b7e115c423685` extracts the withdrawal deficit waterfall into
+  the linked `SettlementLib` and lifts `PairConfig`/`PairLedger` to file scope so the
+  library can take storage pointers. `forge inspect storageLayout` confirms the top-level
+  slots and both struct field layouts are byte-identical to the deployed layout. Vault
+  runtime 24,420 -> 22,065 bytes, margin 217 -> 2,511.
+- `40f30caaec0e0acfa7ad2a3593cd7cc8c4b76b36` values the LP position at the oracle-derived
+  reference price for loss accounting, via `UniswapV4PairedAdapter.positionStateAt`, so a
+  pool pushed inside the deviation bound can no longer manufacture or mask a shortfall.
+  `totalPairAssets` stays pool-priced as the market view.
+- `28104e5bf4d7d7a36da95d7ceb67f547d0ef2a94` splits the deviation bound, adding
+  `maxRemovalDeviationBps` for exits while allocation keeps `maxPriceDeviationBps`. The
+  field packs into the free bytes of the existing `FeedConfig` slot, so no field shifts and
+  deployed pairs read zero, which falls back to the allocation bound. The registration
+  invariant becomes `removalToleranceBps >= removalBound / 2 + buffer`, matching the
+  observed `d/2` amount response, which lets the canary's immutable 400 bps tolerance carry
+  a 600 bps removal bound without changing `removalToleranceBps` (it has no setter after
+  `registerPair`).
+
+An earlier commit pair, `10e04a68a36763879e835f40e3b669c1aa961057` and
+`966646863d9d4eaec6bbdb92790184d2be2df49a`, adds `withdrawableAssets`, which reports only
+the idle a side can actually receive in the current block. `liquidAssets` reports custody
+and overstates access while LP liquidity is open, and the pToken counted it as cash. The
+consumer side landed separately in `peridot-contracts-2-5` as
+`895dc6f0c101597277c571d43f040ca6f11bfd6e`.
+
+All five commits passed the full unit suite (85 tests), the seven pinned fork tests,
+formatting and contract-size checks, and Almanax scans `06ad809f-db1c-4d1a-96a7-f3805db58499`,
+`6734200d-2f7d-4954-98fa-aad8cab2e87b`, `397694f0-5e67-4c54-9668-482c311c6503`,
+`ebfbcb29-a99e-4ac6-86b1-79680943e4e4` and `5e251cec-ab33-40e6-b756-5b1b8822050a` with zero
+findings. The upgrade requires three new implementations plus the library and has not been
+scheduled; the post-upgrade canary, which still has never exercised guardian emergency
+removal, remains outstanding.
+
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
    admin bypass. For the standalone canary, the deployer EOA may initially be both
@@ -207,7 +273,13 @@ with its detached digest in
 
 LP-backed withdrawals and guardian removals fail closed unless the Chainlink price is
 fresh, the stock token oracle is unpaused, any configured sequencer feed is healthy and
-past its grace period, and the zero-hook pool remains within the configured deviation.
+past its grace period, and the zero-hook pool remains within the configured removal
+deviation. The RHNVDA/USD feed is deviation-triggered at 0.5% with no off-hours heartbeat:
+over its first nine weeks it was stale beyond the configured 12h bound for 25.9% of
+wall-clock time, with ~52h weekend gaps in ten of ten weekends and a 76h gap over the
+July 4 holiday. Any pair holding open LP liquidity through those windows cannot service an
+LP-backed exit, so keeper policy, the pToken cash buffer, and collateral factors must be
+sized against that, not against the average case.
 Guardian emergency mode cannot bypass these checks. The current PoolManager exposes no
 native observation/TWAP surface for this zero-hook pool, so deployment operations must
 use private order flow and monitor the pool and oracle continuously; see the
