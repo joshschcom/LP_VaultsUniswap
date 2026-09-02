@@ -29,6 +29,8 @@ contract UpgradeVaultSystem is Script {
     bytes32 internal constant ERC1967_ADMIN_SLOT =
         0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103;
     uint256 internal constant REMOVAL_OPERATIONAL_BUFFER_BPS = 100;
+    /// @dev Mirrors StockOracleGuard.MAX_REMOVAL_DEVIATION_BPS.
+    uint256 internal constant MAX_REMOVAL_DEVIATION_BPS = 2_000;
 
     /// @dev The `FeedConfig` shape deployed before the split-deviation upgrade.
     struct LegacyFeedConfig {
@@ -146,11 +148,11 @@ contract UpgradeVaultSystem is Script {
      *      print a bound the already-registered pair's tolerance cannot absorb.
      */
     function _assertRemovalBoundIsCoverable(address oracleProxy) internal view {
-        uint256 removalBound = vm.envOr("MAX_REMOVAL_DEVIATION_BPS", uint256(600));
+        uint256 removalBound = _removalBoundBps();
         uint256 removalTolerance = vm.envUint("REGISTERED_REMOVAL_TOLERANCE_BPS");
-        require(removalBound != 0, "ZERO_REMOVAL_BOUND");
+        // Round the half up, matching the vault's registration invariant exactly.
         require(
-            removalTolerance >= removalBound / 2 + REMOVAL_OPERATIONAL_BUFFER_BPS,
+            removalTolerance >= (removalBound + 1) / 2 + REMOVAL_OPERATIONAL_BUFFER_BPS,
             "REMOVAL_TOLERANCE_TOO_TIGHT"
         );
         oracleProxy;
@@ -163,7 +165,7 @@ contract UpgradeVaultSystem is Script {
         StockOracleGuard.FeedConfig memory config = _readFeedConfig(oracleProxy, pairId);
         require(config.stockToken != address(0), "PAIR_NOT_CONFIGURED");
         uint16 previous = config.maxRemovalDeviationBps;
-        config.maxRemovalDeviationBps = uint16(vm.envOr("MAX_REMOVAL_DEVIATION_BPS", uint256(600)));
+        config.maxRemovalDeviationBps = uint16(_removalBoundBps());
         console2.log("   previous removal bound bps", uint256(previous));
         console2.log("   new removal bound bps", uint256(config.maxRemovalDeviationBps));
         _printPayload(
@@ -207,6 +209,14 @@ contract UpgradeVaultSystem is Script {
         config.usdgFixedOne = legacy.usdgFixedOne;
         config.enabled = legacy.enabled;
         // maxRemovalDeviationBps is absent pre-upgrade and reads as the fallback zero.
+    }
+
+    /// @dev Read once and range-checked, so an out-of-range env value cannot silently
+    ///      truncate into a plausible-looking bound in the printed payload.
+    function _removalBoundBps() internal view returns (uint256 bound) {
+        bound = vm.envOr("MAX_REMOVAL_DEVIATION_BPS", uint256(600));
+        require(bound != 0, "ZERO_REMOVAL_BOUND");
+        require(bound <= MAX_REMOVAL_DEVIATION_BPS, "REMOVAL_BOUND_OUT_OF_RANGE");
     }
 
     function _proxyAdmin(address proxy, address expectedOwner) internal view returns (address) {

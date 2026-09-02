@@ -499,6 +499,28 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.pairConfig(keccak256("SECOND")).stockToken, address(stock));
     }
 
+    function testRemovalToleranceCheckRoundsTheHalfUp() external {
+        // An odd bound needs ceil(601/2) + 100 = 401. Flooring would accept 400, one bp
+        // short of the amount deviation the tolerance actually has to absorb.
+        oracle.setMaxRemovalDeviationBps(601);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
+        IUniswapV4PairedAdapter.RegisterPairParams memory params =
+            IUniswapV4PairedAdapter.RegisterPairParams({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                poolKey: _poolKey(),
+                expectedPoolId: keccak256("pool"),
+                removalToleranceBps: 400
+            });
+
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.registerPair(keccak256("ODD"), config, params);
+
+        params.removalToleranceBps = 401;
+        vault.registerPair(keccak256("ODD"), config, params);
+        assertEq(vault.pairConfig(keccak256("ODD")).stockToken, address(stock));
+    }
+
     function testExitsToleratePoolDeviationThatBlocksAllocation() external {
         _depositPair(20e18, 1_000e6);
         vm.prank(keeper);

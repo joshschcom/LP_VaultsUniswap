@@ -151,9 +151,11 @@ contract RobinhoodBoostedVault is
 
         oracleGuard.pricesUSD18(pairId);
         oracleGuard.validatePoolPrice(pairId, adapterConfig.poolKey);
+        // Round the half up: an odd bound would otherwise accept a tolerance one bp short of
+        // the amount deviation it has to absorb.
         if (
             uint256(adapterConfig.removalToleranceBps)
-                < uint256(oracleGuard.maxRemovalDeviationBps(pairId)) / 2
+                < (uint256(oracleGuard.maxRemovalDeviationBps(pairId)) + 1) / 2
                     + REMOVAL_OPERATIONAL_BUFFER_BPS
         ) revert InvalidConfiguration();
         liquidityAdapter.registerPair(pairId, adapterConfig);
