@@ -9,6 +9,7 @@ import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 
 import { RobinhoodBoostedVault } from "../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../src/libraries/VaultTypes.sol";
 import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapter.sol";
 import { MockERC20 } from "./mocks/MockERC20.sol";
 import { MockOracleGuard } from "./mocks/MockOracleGuard.sol";
@@ -46,7 +47,7 @@ contract RobinhoodBoostedVaultTest is Test {
         adapter.setVault(address(vault));
 
         PoolKey memory key = _poolKey();
-        RobinhoodBoostedVault.PairConfig memory config = RobinhoodBoostedVault.PairConfig({
+        PairConfig memory config = PairConfig({
             stockToken: address(stock),
             usdg: address(usdg),
             stockAccount: stockAccount,
@@ -349,7 +350,7 @@ contract RobinhoodBoostedVaultTest is Test {
         vm.expectRevert(bytes("ORACLE"));
         vault.emergencyDecrease(PAIR_ID, liquidity / 2, block.timestamp + 60);
 
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         assertFalse(config.emergencyMode);
         assertEq(adapter.positionState(PAIR_ID).liquidity, liquidity);
     }
@@ -418,7 +419,7 @@ contract RobinhoodBoostedVaultTest is Test {
     }
 
     function testDeprecatedMinimumDeadlineSlotMustRemainZero() external {
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         config.deprecatedMinDeadlineDelay = 1;
 
         vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
@@ -426,7 +427,7 @@ contract RobinhoodBoostedVaultTest is Test {
     }
 
     function testSettlementSlippageCannotExceedFivePercent() external {
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         config.maxSwapSlippageBps = 501;
 
         vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
@@ -435,7 +436,7 @@ contract RobinhoodBoostedVaultTest is Test {
 
     function testRegistrationRequiresRemovalToleranceAboveOracleDeviation() external {
         bytes32 secondPair = keccak256("SECOND");
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         IUniswapV4PairedAdapter.RegisterPairParams memory adapterConfig =
             IUniswapV4PairedAdapter.RegisterPairParams({
                 stockToken: address(stock),
@@ -515,7 +516,7 @@ contract RobinhoodBoostedVaultTest is Test {
     function testGuardianCanPauseButCannotUnpause() external {
         vm.prank(guardian);
         vault.setPairPause(PAIR_ID, true, true, true);
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         assertTrue(config.emergencyMode);
 
         vm.prank(guardian);
@@ -544,7 +545,7 @@ contract RobinhoodBoostedVaultTest is Test {
     }
 
     function testConfiguredPairValueCapStillFailsClosed() external {
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         config.maxPairValueUSDG = uint128(100e18);
         vault.updatePairRisk(PAIR_ID, config);
 
@@ -557,7 +558,7 @@ contract RobinhoodBoostedVaultTest is Test {
 
     function testRebalanceAutoPausesAllocationWhenExistingPairExceedsCap() external {
         _depositPair(1e18, 100e6);
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         config.maxPairValueUSDG = uint128(250e18);
         vault.updatePairRisk(PAIR_ID, config);
         oracle.setPrices(200e18, 1e18);

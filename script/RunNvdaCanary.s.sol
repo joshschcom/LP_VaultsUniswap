@@ -8,6 +8,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { RobinhoodBoostedVault } from "../src/RobinhoodBoostedVault.sol";
+import { PairConfig, PairLedger } from "../src/libraries/VaultTypes.sol";
 import { StrategyLossReserve } from "../src/StrategyLossReserve.sol";
 import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapter.sol";
 
@@ -29,7 +30,7 @@ contract RunNvdaCanary is Script {
         require(block.chainid == ROBINHOOD_CHAIN_ID, "WRONG_CHAIN");
         RobinhoodBoostedVault vault = RobinhoodBoostedVault(vm.envAddress("VAULT_PROXY"));
         require(address(vault).code.length != 0, "VAULT_NOT_CONTRACT");
-        RobinhoodBoostedVault.PairConfig memory config = _validateCanary(vault);
+        PairConfig memory config = _validateCanary(vault);
         bytes32 action = keccak256(bytes(vm.envString("CANARY_ACTION")));
 
         if (action == keccak256("status")) {
@@ -152,7 +153,7 @@ contract RunNvdaCanary is Script {
         address expectedActor,
         address token,
         string memory maxAmountEnv,
-        RobinhoodBoostedVault.PairConfig memory config
+        PairConfig memory config
     ) internal {
         require(actor == expectedActor, "WRONG_SIDE_KEY");
         uint256 accounted = vault.accountedAssets(PAIR_ID, token);
@@ -172,11 +173,9 @@ contract RunNvdaCanary is Script {
         console2.log("withdraw realized loss", realizedLoss);
     }
 
-    function _collectFees(
-        RobinhoodBoostedVault vault,
-        address actor,
-        RobinhoodBoostedVault.PairConfig memory config
-    ) internal {
+    function _collectFees(RobinhoodBoostedVault vault, address actor, PairConfig memory config)
+        internal
+    {
         vm.startBroadcast(actor);
         (uint256 stockFees, uint256 usdgFees) = vault.collectFees(PAIR_ID, _deadline(config));
         vm.stopBroadcast();
@@ -188,7 +187,7 @@ contract RunNvdaCanary is Script {
     function _emergencyDecrease(
         RobinhoodBoostedVault vault,
         address actor,
-        RobinhoodBoostedVault.PairConfig memory config
+        PairConfig memory config
     ) internal {
         IUniswapV4PairedAdapter.PositionState memory position =
             vault.liquidityAdapter().positionState(PAIR_ID);
@@ -232,7 +231,7 @@ contract RunNvdaCanary is Script {
     function _validateCanary(RobinhoodBoostedVault vault)
         internal
         view
-        returns (RobinhoodBoostedVault.PairConfig memory config)
+        returns (PairConfig memory config)
     {
         config = vault.pairConfig(PAIR_ID);
         require(config.exists, "CANARY_NOT_REGISTERED");
@@ -290,11 +289,7 @@ contract RunNvdaCanary is Script {
         console2.logBytes(data);
     }
 
-    function _deadline(RobinhoodBoostedVault.PairConfig memory config)
-        internal
-        view
-        returns (uint256)
-    {
+    function _deadline(PairConfig memory config) internal view returns (uint256) {
         uint256 window = vm.envOr("DEADLINE_WINDOW", uint256(120));
         require(window != 0 && window <= config.maxDeadlineDelay, "INVALID_DEADLINE_WINDOW");
         return block.timestamp + window;
@@ -311,11 +306,8 @@ contract RunNvdaCanary is Script {
         console2.log("canary drained", true);
     }
 
-    function _printStatus(
-        RobinhoodBoostedVault vault,
-        RobinhoodBoostedVault.PairConfig memory config
-    ) internal view {
-        RobinhoodBoostedVault.PairLedger memory pairLedger = vault.ledger(PAIR_ID);
+    function _printStatus(RobinhoodBoostedVault vault, PairConfig memory config) internal view {
+        PairLedger memory pairLedger = vault.ledger(PAIR_ID);
         IUniswapV4PairedAdapter.PositionState memory position =
             vault.liquidityAdapter().positionState(PAIR_ID);
         console2.log("pair id");

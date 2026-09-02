@@ -19,6 +19,7 @@ import {
 } from "@uniswap/universal-router/contracts/interfaces/IUniversalRouter.sol";
 
 import { RobinhoodBoostedVault } from "../../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../../src/libraries/VaultTypes.sol";
 import { UniswapV4PairedAdapter } from "../../src/UniswapV4PairedAdapter.sol";
 import { StockOracleGuard } from "../../src/StockOracleGuard.sol";
 import { StrategyLossReserve } from "../../src/StrategyLossReserve.sol";
@@ -348,7 +349,7 @@ contract RobinhoodNVDAForkTest is Test {
         system.vault
             .registerPair(
                 PAIR_ID,
-                RobinhoodBoostedVault.PairConfig({
+                PairConfig({
                     stockToken: NVDA,
                     usdg: USDG,
                     stockAccount: stockSide,

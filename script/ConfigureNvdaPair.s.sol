@@ -9,6 +9,7 @@ import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
 import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 
 import { RobinhoodBoostedVault } from "../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../src/libraries/VaultTypes.sol";
 import { StockOracleGuard } from "../src/StockOracleGuard.sol";
 import { StrategyLossReserve } from "../src/StrategyLossReserve.sol";
 import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapter.sol";
@@ -51,7 +52,7 @@ contract ConfigureNvdaPair is Script {
         });
         StockOracleGuard.FeedConfig memory oracleConfig = _oracleConfig(stock, usdg);
         StrategyLossReserve.ReserveConfig memory reserveConfig = _reserveConfig(stock, usdg);
-        RobinhoodBoostedVault.PairConfig memory vaultConfig = _vaultConfig(stock, usdg);
+        PairConfig memory vaultConfig = _vaultConfig(stock, usdg);
         IUniswapV4PairedAdapter.RegisterPairParams memory adapterConfig =
             _adapterConfig(stock, usdg, key);
         _validateRollout(pairId, vault, vaultConfig);
@@ -103,11 +104,10 @@ contract ConfigureNvdaPair is Script {
         console2.logBytes(data);
     }
 
-    function _validateRollout(
-        bytes32 pairId,
-        RobinhoodBoostedVault vault,
-        RobinhoodBoostedVault.PairConfig memory config
-    ) internal view {
+    function _validateRollout(bytes32 pairId, RobinhoodBoostedVault vault, PairConfig memory config)
+        internal
+        view
+    {
         require(address(vault).code.length != 0, "VAULT_NOT_CONTRACT");
         if (pairId == CANARY_PAIR_ID) {
             require(config.stockAccount.code.length == 0, "CANARY_STOCK_ACCOUNT_NOT_EOA");
@@ -163,7 +163,7 @@ contract ConfigureNvdaPair is Script {
     function _vaultConfig(address stock, address usdg)
         internal
         view
-        returns (RobinhoodBoostedVault.PairConfig memory config)
+        returns (PairConfig memory config)
     {
         config.stockToken = stock;
         config.usdg = usdg;

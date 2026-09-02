@@ -9,6 +9,7 @@ import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 
 import { RobinhoodBoostedVault } from "../../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../../src/libraries/VaultTypes.sol";
 import { IUniswapV4PairedAdapter } from "../../src/interfaces/IUniswapV4PairedAdapter.sol";
 import { MockERC20 } from "../mocks/MockERC20.sol";
 import { MockOracleGuard } from "../mocks/MockOracleGuard.sol";
@@ -127,7 +128,7 @@ contract VaultAccountingInvariant is StdInvariant, Test {
         });
         vault.registerPair(
             PAIR_ID,
-            RobinhoodBoostedVault.PairConfig({
+            PairConfig({
                 stockToken: address(stock),
                 usdg: address(usdg),
                 stockAccount: stockAccount,

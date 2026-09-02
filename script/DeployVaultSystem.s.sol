@@ -48,17 +48,21 @@ contract DeployVaultSystem is Script {
         // addresses are deterministic from the broadcaster nonce, so circular references
         // can be encoded into each proxy's constructor initializer without ever exposing
         // an uninitialized proxy between broadcast transactions.
-        uint256 firstNonce = vm.getNonce(deployer);
-        address expectedVaultProxy = vm.computeCreateAddress(deployer, firstNonce + 4);
-        address expectedOracleProxy = vm.computeCreateAddress(deployer, firstNonce + 5);
-        address expectedReserveProxy = vm.computeCreateAddress(deployer, firstNonce + 6);
-        address expectedAdapterProxy = vm.computeCreateAddress(deployer, firstNonce + 7);
-
         vm.startBroadcast(deployer);
         RobinhoodBoostedVault vaultImpl = new RobinhoodBoostedVault();
         StockOracleGuard oracleImpl = new StockOracleGuard();
         StrategyLossReserve reserveImpl = new StrategyLossReserve();
         UniswapV4PairedAdapter adapterImpl = new UniswapV4PairedAdapter();
+
+        // Read the nonce after the implementations rather than assuming a fixed offset from
+        // the start. The vault links SettlementLib, and an unlinked library is deployed by
+        // the broadcast before the first contract that needs it, which would shift a
+        // precomputed offset and make every predicted proxy address wrong.
+        uint256 proxyNonce = vm.getNonce(deployer);
+        address expectedVaultProxy = vm.computeCreateAddress(deployer, proxyNonce);
+        address expectedOracleProxy = vm.computeCreateAddress(deployer, proxyNonce + 1);
+        address expectedReserveProxy = vm.computeCreateAddress(deployer, proxyNonce + 2);
+        address expectedAdapterProxy = vm.computeCreateAddress(deployer, proxyNonce + 3);
 
         bytes memory vaultInit = abi.encodeCall(
             RobinhoodBoostedVault.initialize,
