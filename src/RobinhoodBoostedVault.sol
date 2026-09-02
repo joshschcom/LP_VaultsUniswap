@@ -308,6 +308,22 @@ contract RobinhoodBoostedVault is
         config;
     }
 
+    /// @dev Pair assets with the position valued at `sqrtPriceX96` instead of the pool's live
+    ///      price. Loss accounting uses the oracle-derived reference so that pushing the pool
+    ///      cannot manufacture or mask a shortfall. `totalPairAssets` stays pool-priced and is
+    ///      the market view.
+    function _pairAssetsAt(bytes32 pairId, uint160 sqrtPriceX96)
+        internal
+        view
+        returns (uint256 stockAssets, uint256 usdgAssets)
+    {
+        PairLedger storage pairLedger = _ledger[pairId];
+        IUniswapV4PairedAdapter.PositionState memory position =
+            liquidityAdapter.positionStateAt(pairId, sqrtPriceX96);
+        stockAssets = pairLedger.stockIdle + position.stockAmount;
+        usdgAssets = pairLedger.usdgIdle + position.usdgAmount;
+    }
+
     function depositForPair(bytes32 pairId, address token, uint256 amount)
         external
         nonReentrant
@@ -434,7 +450,7 @@ contract RobinhoodBoostedVault is
         if (config.emergencyMode) revert EmergencyMode();
         _checkDeadline(config, deadline);
         PairLedger storage pairLedger = _ledger[pairId];
-        (pnlUSDG,,) = _checkpointPair(pairId, config, pairLedger, deadline);
+        (pnlUSDG,,,) = _checkpointPair(pairId, config, pairLedger, deadline);
     }
 
     function withdrawForSide(
@@ -462,11 +478,15 @@ contract RobinhoodBoostedVault is
             _checkDeadline(config, deadline);
             uint256 stockPrice;
             uint256 usdgPrice;
+            // Derived from oracle prices alone, so it is constant for the whole call and can
+            // be reused after the unwind and settlement without revalidating.
+            uint160 referenceSqrtPriceX96;
             if (_checkpointIsStale(config, pairLedger)) {
-                (, stockPrice, usdgPrice) = _checkpointPair(pairId, config, pairLedger, deadline);
+                (, stockPrice, usdgPrice, referenceSqrtPriceX96) =
+                    _checkpointPair(pairId, config, pairLedger, deadline);
             } else {
                 PoolKey memory key = liquidityAdapter.poolKey(pairId);
-                oracleGuard.validatePoolPrice(pairId, key);
+                (,, referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
                 (stockPrice, usdgPrice) = oracleGuard.pricesUSD18(pairId);
                 _collectFees(pairId, config, pairLedger, deadline);
             }
@@ -475,7 +495,7 @@ contract RobinhoodBoostedVault is
             _settleShortfall(
                 pairId, config, pairLedger, stockSide, requested, stockPrice, usdgPrice, deadline
             );
-            _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice);
+            _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice, referenceSqrtPriceX96);
         }
 
         uint256 finalIdle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
@@ -525,7 +545,7 @@ contract RobinhoodBoostedVault is
         pairLedger.usdgIdle += usdgReceived;
         // Allocate any shared LP loss atomically with the guardian exit. If this was
         // only a partial exit, withdrawForSide remains closed while liquidity remains.
-        _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice);
+        _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice, referenceSqrtPriceX96);
         emit EmergencyLiquidityDecreased(pairId, liquidityRemoved, stockReceived, usdgReceived);
         emit PairPauseUpdated(pairId, true, true, true);
     }
@@ -591,13 +611,21 @@ contract RobinhoodBoostedVault is
         PairConfig storage config,
         PairLedger storage pairLedger,
         uint256 deadline
-    ) internal returns (int256 pnlUSDG, uint256 stockPrice, uint256 usdgPrice) {
+    )
+        internal
+        returns (
+            int256 pnlUSDG,
+            uint256 stockPrice,
+            uint256 usdgPrice,
+            uint160 referenceSqrtPriceX96
+        )
+    {
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        oracleGuard.validatePoolPrice(pairId, key);
+        (,, referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
         (stockPrice, usdgPrice) = oracleGuard.pricesUSD18(pairId);
 
         _collectFees(pairId, config, pairLedger, deadline);
-        (uint256 stockAssets, uint256 usdgAssets) = totalPairAssets(pairId);
+        (uint256 stockAssets, uint256 usdgAssets) = _pairAssetsAt(pairId, referenceSqrtPriceX96);
         uint256 benchmark = _benchmarkUSDG(config, pairLedger, stockPrice, usdgPrice);
         uint256 gross = _grossUSDG(config, stockAssets, usdgAssets, stockPrice, usdgPrice);
 
@@ -707,9 +735,10 @@ contract RobinhoodBoostedVault is
         PairConfig storage config,
         PairLedger storage pairLedger,
         uint256 stockPrice,
-        uint256 usdgPrice
+        uint256 usdgPrice,
+        uint160 referenceSqrtPriceX96
     ) internal {
-        (uint256 stockAssets, uint256 usdgAssets) = totalPairAssets(pairId);
+        (uint256 stockAssets, uint256 usdgAssets) = _pairAssetsAt(pairId, referenceSqrtPriceX96);
         uint256 benchmark = _benchmarkUSDG(config, pairLedger, stockPrice, usdgPrice);
         uint256 gross = _grossUSDG(config, stockAssets, usdgAssets, stockPrice, usdgPrice);
         if (gross >= benchmark || benchmark == 0) return;

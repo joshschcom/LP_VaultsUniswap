@@ -125,6 +125,47 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
     }
 
+    function testSkewedPoolCannotManufactureLossAtCheckpoint() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Pool composition says half the position evaporated; the oracle-priced composition
+        // says the position is intact. Loss accounting must follow the oracle.
+        adapter.setPosition(PAIR_ID, 5e18, 500e6);
+        adapter.setReferencePosition(PAIR_ID, 10e18, 1_000e6);
+
+        vm.prank(keeper);
+        int256 pnl = vault.checkpoint(PAIR_ID, block.timestamp + 60);
+
+        assertEq(pnl, 0, "pool skew must not manufacture a loss");
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 1_000e6);
+        assertEq(vault.ledger(PAIR_ID).cumulativeLossUSDG, 0);
+
+        // totalPairAssets stays the pool-priced market view, deliberately divergent.
+        (uint256 stockAssets,) = vault.totalPairAssets(PAIR_ID);
+        assertEq(stockAssets, 5e18);
+    }
+
+    function testSkewedPoolCannotMaskRealLossAtCheckpoint() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Inverse of the above: the pool is pushed to look healthy while the oracle-priced
+        // composition carries a genuine $300 shortfall against the $2,000 benchmark.
+        adapter.setPosition(PAIR_ID, 20e18, 2_000e6);
+        adapter.setReferencePosition(PAIR_ID, 8e18, 900e6);
+
+        vm.prank(keeper);
+        int256 pnl = vault.checkpoint(PAIR_ID, block.timestamp + 60);
+
+        assertEq(pnl, -300e18, "pool skew must not mask a real loss");
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 8.5e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
+    }
+
     function testFeesAreSplitInKindBeforeClaimsIncrease() external {
         _depositPair(10e18, 1_000e6);
         vm.prank(keeper);

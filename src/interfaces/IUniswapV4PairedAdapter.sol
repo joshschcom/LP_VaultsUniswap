@@ -23,6 +23,12 @@ interface IUniswapV4PairedAdapter {
     function poolKey(bytes32 pairId) external view returns (PoolKey memory);
     function positionState(bytes32 pairId) external view returns (PositionState memory);
 
+    /// @notice Position composition valued at an explicit price rather than the pool's live one.
+    function positionStateAt(bytes32 pairId, uint160 sqrtPriceX96)
+        external
+        view
+        returns (PositionState memory);
+
     function addLiquidity(
         bytes32 pairId,
         uint256 stockDesired,

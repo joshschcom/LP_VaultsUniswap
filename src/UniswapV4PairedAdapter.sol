@@ -176,14 +176,47 @@ contract UniswapV4PairedAdapter is
         return pair.key;
     }
 
+    /// @notice Position composition at the pool's live price.
+    /// @dev Market view. The amounts move with the pool, so a manipulated pool moves them
+    ///      too. Accounting that must resist manipulation uses `positionStateAt` with the
+    ///      oracle-derived reference price instead.
     function positionState(bytes32 pairId) public view returns (PositionState memory state) {
         PairState storage pair = _pair(pairId);
-        state.tokenId = pair.tokenId;
-        state.liquidity = pair.liquidity;
-        if (pair.liquidity == 0) return state;
-
+        if (pair.liquidity == 0) {
+            state.tokenId = pair.tokenId;
+            return state;
+        }
         (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(PoolId.wrap(pair.poolId));
         if (sqrtPriceX96 == 0) revert PoolUninitialized();
+        return _positionStateAt(pair, sqrtPriceX96);
+    }
+
+    /// @notice Position composition valued at an explicit price rather than the pool's.
+    /// @dev Called with the oracle-derived `referenceSqrtPriceX96` so loss accounting cannot
+    ///      be moved by pushing the pool. Reverts on a reference price outside the tick range.
+    function positionStateAt(bytes32 pairId, uint160 sqrtPriceX96)
+        external
+        view
+        returns (PositionState memory state)
+    {
+        if (sqrtPriceX96 < TickMath.MIN_SQRT_PRICE || sqrtPriceX96 >= TickMath.MAX_SQRT_PRICE) {
+            revert InvalidReferencePrice();
+        }
+        PairState storage pair = _pair(pairId);
+        if (pair.liquidity == 0) {
+            state.tokenId = pair.tokenId;
+            return state;
+        }
+        return _positionStateAt(pair, sqrtPriceX96);
+    }
+
+    function _positionStateAt(PairState storage pair, uint160 sqrtPriceX96)
+        private
+        view
+        returns (PositionState memory state)
+    {
+        state.tokenId = pair.tokenId;
+        state.liquidity = pair.liquidity;
         uint160 sqrtLower =
             TickMath.getSqrtPriceAtTick(TickMath.minUsableTick(pair.key.tickSpacing));
         uint160 sqrtUpper =

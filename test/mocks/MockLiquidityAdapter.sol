@@ -18,6 +18,9 @@ contract MockLiquidityAdapter is IUniswapV4PairedAdapter {
         PositionState position;
         uint256 stockFees;
         uint256 usdgFees;
+        bool useReferencePosition;
+        uint256 referenceStockAmount;
+        uint256 referenceUsdgAmount;
     }
 
     address public vault;
@@ -46,6 +49,28 @@ contract MockLiquidityAdapter is IUniswapV4PairedAdapter {
 
     function positionState(bytes32 pairId) external view returns (PositionState memory) {
         return _pairs[pairId].position;
+    }
+
+    /// @dev The mock stores composition directly, so a reference price only selects between
+    ///      the live composition and an explicitly configured oracle-priced one. That lets a
+    ///      test drive pool and oracle valuations apart the way a skewed pool would.
+    function positionStateAt(bytes32 pairId, uint160) external view returns (PositionState memory) {
+        Pair storage pair = _pairs[pairId];
+        if (!pair.useReferencePosition) return pair.position;
+        PositionState memory state = pair.position;
+        state.stockAmount = pair.referenceStockAmount;
+        state.usdgAmount = pair.referenceUsdgAmount;
+        return state;
+    }
+
+    /// @notice Sets the composition reported to oracle-priced valuation only.
+    function setReferencePosition(bytes32 pairId, uint256 stockAmount, uint256 usdgAmount)
+        external
+    {
+        Pair storage pair = _pairs[pairId];
+        pair.useReferencePosition = true;
+        pair.referenceStockAmount = stockAmount;
+        pair.referenceUsdgAmount = usdgAmount;
     }
 
     function setPosition(bytes32 pairId, uint256 stockAmount, uint256 usdgAmount) external {
