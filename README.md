@@ -174,9 +174,9 @@ timelock operations are recorded in
 with its detached digest in
 [`deployments/robinhood-mainnet.post-upgrade-canary.operations.sha256`](./deployments/robinhood-mainnet.post-upgrade-canary.operations.sha256).
 
-A third review pass addressed pool-price dependence and the exit availability window, and
-is **written and scanned but not yet deployed**. Three changes ship together as one upgrade
-because each needs vault bytecode and the vault had 217 bytes of EIP-170 headroom:
+A third review pass addressed pool-price dependence and the exit availability window. It was
+executed and independently verified on-chain on 2026-09-03. Three changes shipped together as
+one upgrade because each needs vault bytecode and the vault had 217 bytes of EIP-170 headroom:
 
 - `7d2c20002f2f7c8c40e63c4cb78b7e115c423685` extracts the withdrawal deficit waterfall into
   the linked `SettlementLib` and lifts `PairConfig`/`PairLedger` to file scope so the
@@ -220,9 +220,27 @@ Every commit passed the full unit suite (86 tests), the seven pinned fork tests,
 and contract-size checks, and Almanax scans `06ad809f-db1c-4d1a-96a7-f3805db58499`,
 `6734200d-2f7d-4954-98fa-aad8cab2e87b`, `397694f0-5e67-4c54-9668-482c311c6503`,
 `ebfbcb29-a99e-4ac6-86b1-79680943e4e4`, `76630d52-fb9d-4876-9e5a-6b6dd8c6f0db` and
-`5e251cec-ab33-40e6-b756-5b1b8822050a` with zero active findings. The upgrade requires
-three new implementations plus the library and has not been scheduled; the post-upgrade
-canary, which still has never exercised guardian emergency removal, remains outstanding.
+`5e251cec-ab33-40e6-b756-5b1b8822050a` with zero active findings.
+
+The upgrade replaced three implementations and introduced the linked `SettlementLib` at
+`0x813AbFeC0DE50f8674798CbaB72Ed7b5D8CcB9cB`; the vault implementation cannot be reproduced
+from source without linking that exact address. It was scheduled as four
+predecessor-chained timelock operations so the adapter and guard could not land after the
+vault that calls them, and executed in that order. Post-execution verification at block
+53313911 confirms all four operations `Done`, each proxy on its reviewed implementation,
+the linked library present in the vault runtime, ProxyAdmin ownership still with the
+timelock, governance roles and dependency wiring unchanged, and the bounds live at 300 bps
+for allocation and 600 bps for exits. The pair carries zero principal and zero idle.
+
+The pair remains allocation- and swap-enabled, carried forward from the
+`CANARY_ENABLED_EMPTY_RECOVERY_READY` state staged on 2026-08-11. It is empty, and only the
+configured side accounts can deposit into it. The replacement deployments, the four
+timelock operations, and the pinned post-execution checks are recorded in
+[`deployments/robinhood-mainnet.oracle-priced-loss-upgrade.json`](./deployments/robinhood-mainnet.oracle-priced-loss-upgrade.json),
+with its detached digest in
+[`deployments/robinhood-mainnet.oracle-priced-loss-upgrade.sha256`](./deployments/robinhood-mainnet.oracle-priced-loss-upgrade.sha256).
+The post-upgrade canary, which still has never exercised guardian emergency removal,
+remains outstanding.
 
 1. Deploy the standard OpenZeppelin `TimelockController` with
    `DeployVaultTimelock.s.sol`. The timelock is self-administered and has no external
