@@ -138,8 +138,31 @@ timelock operations, and the pinned post-execution checks are recorded in
 [`deployments/robinhood-mainnet.oracle-priced-loss-upgrade.json`](./robinhood-mainnet.oracle-priced-loss-upgrade.json),
 with its detached digest in
 [`deployments/robinhood-mainnet.oracle-priced-loss-upgrade.sha256`](./robinhood-mainnet.oracle-priced-loss-upgrade.sha256).
-The post-upgrade canary, which still has never exercised guardian emergency removal,
-remains outstanding.
+The post-upgrade canary was run and completed on 2026-09-04. It exercised the
+oracle-guarded idle withdrawal with LP liquidity open (loss recognized without unwinding
+any liquidity, both principals scaled pro-rata, 528,275 gas against 117,818 for the
+unguarded path), **guardian emergency removal of the complete position for the first time
+on-chain**, fee collection after liquidity reached zero but before burning the NFT, the
+empty-position burn, and **the bounded oracle-floored settlement swap for the first time
+on-chain**. The pair finished drained, both pause flags true, emergency mode false, reserve
+empty and token allowances zero. It is recorded in
+[`robinhood-mainnet.post-upgrade-canary.execution.json`](./robinhood-mainnet.post-upgrade-canary.execution.json)
+with its detached digest in
+[`robinhood-mainnet.post-upgrade-canary.execution.sha256`](./robinhood-mainnet.post-upgrade-canary.execution.sha256).
+
+Three things came out of it that the record keeps in full. A sequencing error: `rebalance`
+calls `_requireFresh`, so it reverts `CheckpointStale` unless a checkpoint ran within
+`maxCheckpointAge` — checkpoint must precede rebalance, and because it did not, the first
+idle withdrawal ran against zero liquidity and had to be repeated. A checkpoint branch gap:
+when gross value is at or above benchmark but one side sits below its principal, neither the
+loss nor the gain branch fires, so a cross-side composition mismatch persists and the
+shorted side cannot be drained in its native token; closing it required an extra timelock
+operation enabling swaps while allocation stayed paused. And a stranded surplus: idle above
+principal is unreachable, because `withdrawForSide` caps returns at `min(idle, principal)`,
+leaving 24,697,449,583 wei NVDA permanently unattributable in the vault.
+
+The reserve held no USDG, so the reserve-cover step of the waterfall was not exercised; the
+deficit went straight to the settlement swap.
 
 ## Deployment procedure
 

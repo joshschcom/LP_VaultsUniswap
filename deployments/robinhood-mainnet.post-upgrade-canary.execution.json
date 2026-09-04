@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "status": "COMPLETED_DRAINED_PAUSED_VERIFIED",
+  "verifiedAtUtc": "2026-09-04T12:37:07Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "summary": "Post-upgrade canary for the oracle-priced-loss upgrade. Exercised the guarded idle withdrawal, guardian emergency removal, empty-position fee collection, and the bounded settlement swap, then drained and re-paused the pair.",
+  "source": {
+    "repository": "joshschcom/LP_VaultsUniswap",
+    "branch": "robinhood-vault-canary",
+    "upgradeRecord": "./robinhood-mainnet.oracle-priced-loss-upgrade.json",
+    "upgradeRecordSha256": "9198a29225f680e9cd0c7cd5c14b78f6c3e0dd9404dc88dab51442cef1a6e6f0",
+    "plannedOperationsRecord": "./robinhood-mainnet.post-upgrade-canary.operations.json"
+  },
+  "pair": {
+    "label": "NVDA/USDG/CANARY",
+    "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+    "vault": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+    "adapter": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3",
+    "oracleGuard": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+    "lossReserve": "0x806b182B050f7EcF908758dD6bBF91DB8B2212aF",
+    "sideAccounts": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "amounts": {
+    "stockDeposited": "20000000000000000",
+    "usdgDeposited": "3000000",
+    "idleWithdrawalsPerformed": 2,
+    "idleWithdrawalEach": "2000000000000000",
+    "recordedIdleWithdrawalCap": "2000000000000000",
+    "deviationNote": "The plan recorded a single 0.002 NVDA idle withdrawal. Two were performed because the first ran against zero liquidity, see findings.sequencingError."
+  },
+  "sequence": [
+    { "step": 1,  "action": "deposit-stock",     "blockNumber": 53328428, "transactionHash": "0xba7e9eafe3e227e62a69629a3aba8ae61565c66ceb61bc9b74162302245229b0" },
+    { "step": 2,  "action": "deposit-usdg",      "blockNumber": 53331402, "transactionHash": "0x713bd57f83edf8bc5e716bbc45b29160338b439fd3b509b63e298f7eb4fe04b8" },
+    { "step": 3,  "action": "checkpoint",        "blockNumber": 53332200, "transactionHash": "0xbf9e46d546b369095daf63e65bf95f8038e26bffcba3536eb58417bd472bc0e8" },
+    { "step": 4,  "action": "withdraw-stock (oracle-free idle path, liquidity zero)", "blockNumber": 53333633, "transactionHash": "0x1cb698bb4d7f370cd6b9b0d84d909cd07bfbc584b78dd1d63561adfa066983d9", "gasUsed": 117818, "realizedLoss": "0" },
+    { "step": 5,  "action": "rebalance",         "blockNumber": 53336654, "transactionHash": "0x40263577462857df7f9a3dfbf3d2cbf4a9b18b811d1435a0a04ada34886360fd", "gasUsed": 696909 },
+    { "step": 6,  "action": "withdraw-stock (oracle-guarded path, liquidity open)",   "blockNumber": 53337369, "transactionHash": "0xa0500968cdd3280a047c6ae0b8b82d4777fc77f7885d02e93969e665fbadfea5", "gasUsed": 528275, "realizedLoss": "5613362451" },
+    { "step": 7,  "action": "schedule reserve pause",   "blockNumber": 53340015, "transactionHash": "0xec44ee6b3edaf6d86c23f2ce6b7711f34fbe8d75afc4d815ebf5b7d741d278e9" },
+    { "step": 8,  "action": "emergency-decrease (guardian, full position)", "blockNumber": 53340613, "transactionHash": "0x578e194ec5ee202e5845e6d87b96900ca49b71194f0d7880b74188aefa082211", "gasUsed": 424174 },
+    { "step": 9,  "action": "collect-fees (liquidity zero, NFT alive)", "blockNumber": 53341018, "transactionHash": "0xf009523db64cf0e79652dceeaa468b3e45286785a7dc7258a4162110203b0667", "feesReported": "0" },
+    { "step": 10, "action": "burn-position",     "blockNumber": 53341407, "transactionHash": "0xdb233890dfee2cac6bfe6e7dc832f9023b53d5f6b0a19cb9703ea1f9c1626134" },
+    { "step": 11, "action": "schedule drain-mode pause", "blockNumber": 53347551, "transactionHash": "0x0cceb83e36a1590e24c8eea23f6871afa48fa2b003e18a1238becbe8cb32b375" },
+    { "step": 12, "action": "schedule reserve withdrawal", "blockNumber": 53350026, "transactionHash": "0x5f852a69b2b75419899da803d1236dd9225aa52d6569975cf84132c0eb4f8bc4" },
+    { "step": 13, "action": "execute drain-mode pause (alloc off, swaps on, emergency cleared)", "blockNumber": 53454733, "transactionHash": "0x03391d8887aacba8dd5401ad863f76513ec41a2ae2cb63b95742f663ef012add" },
+    { "step": 14, "action": "checkpoint",        "blockNumber": 53455634, "transactionHash": "0xe134a750d03cc995ea726af7ee7fbe8781489cd0c403fb25d9e4413178ab6e9a" },
+    { "step": 15, "action": "withdraw-usdg (settlement swap covered the deficit)", "blockNumber": 54261831, "transactionHash": "0x05a3d50d0b6ef326724e604695b101a55f577f636e22b4babb5a900dc46349a1", "gasUsed": 514791 },
+    { "step": 16, "action": "withdraw-stock (final drain)", "blockNumber": 54262020, "transactionHash": "0x3e2bd640f63a70ac40c8339edfdcd5212a492c909cb4e8f7b8bd508ae408b423", "gasUsed": 113088 },
+    { "step": 17, "action": "execute recovery pause (pre-staged 2026-08-11)", "blockNumber": 54269177, "transactionHash": "0xbe2b355a3fca2ed1a6d04835c2294eb0d1b5c3827853b360daaae9c0521fdd35" },
+    { "step": 18, "action": "execute reserve pause", "blockNumber": 54269418, "transactionHash": "0x9b24eb1310ce68e0643a0d73fb43da4c22d5aadc768d890ab139c069140e38b2" },
+    { "step": 19, "action": "execute reserve withdrawal", "blockNumber": 54269697, "transactionHash": "0xbb73a5d82bd7ff7ccb2b92887eb7fa0018f42e31c1b3d73f0e507677d11587a8", "amount": "467355754" }
+  ],
+  "coverageAchieved": [
+    "Oracle-free idle withdrawal with zero open liquidity.",
+    "Oracle-guarded idle withdrawal with liquidity open: loss recognized without unwinding any liquidity, both principals scaled pro-rata, 528,275 gas against 117,818 for the unguarded path.",
+    "Guardian emergency removal of the complete position, entering emergency mode atomically. First on-chain exercise of this path.",
+    "Fee collection after liquidity reached zero but before burning the NFT, returning zero fees.",
+    "Empty position NFT burn.",
+    "Bounded oracle-floored settlement swap. First on-chain exercise of the third waterfall step."
+  ],
+  "coverageNotAchieved": [
+    "Reserve-funded deficit cover. The reserve held no USDG, so the second waterfall step was not exercised; the deficit went straight to the settlement swap."
+  ],
+  "findings": {
+    "sequencingError": {
+      "severity": "process",
+      "description": "rebalance calls _requireFresh, which reverts CheckpointStale when the last checkpoint is older than maxCheckpointAge. The pair's last checkpoint was from 2026-07-27, so rebalance reverted and the position was never opened. The first idle withdrawal therefore ran against zero liquidity and exercised the oracle-free path instead of the intended guarded one.",
+      "resolution": "Checkpoint before rebalance, not after. The test was re-run correctly at block 53337369.",
+      "impact": "None on funds. Two idle withdrawals of 0.002 NVDA were performed instead of the single one recorded in the plan."
+    },
+    "checkpointBranchGap": {
+      "severity": "observation",
+      "description": "After the guardian exit the USDG side was 174 units below its principal while the stock side was in surplus, with total USD value intact. checkpoint fires neither branch in that state: the loss branch requires gross < benchmark, and the gain branch requires BOTH sides at or above principal. The cross-side mismatch therefore persists and the shorted side cannot be drained natively.",
+      "resolution": "An additional timelock operation enabled swaps with allocation still paused, so the withdrawal's settlement swap converted stock idle into the missing USDG. This is a deviation from the two-operation plan and is recorded as steps 11 and 13.",
+      "reviewNote": "At production scale, with swaps paused during an incident, the same shape means the last increment of each side is not redeemable in its native token even when the pair is solvent in USD."
+    },
+    "strandedSurplusIdle": {
+      "severity": "observation",
+      "description": "24697449583 wei NVDA (about 0.0000057 USD) remains as idle with zero principal. withdrawForSide caps returns at min(idle, principal), so idle above principal is structurally unreachable. assert-drained checks principals and reserves, so this does not block the drained assertion.",
+      "reviewNote": "Composition drift leaves a permanent unattributable residue in the vault. Harmless at canary scale; worth an explicit policy for production."
+    }
+  },
+  "finalState": {
+    "verificationBlockNumber": 54270320,
+    "verificationBlockHash": "0xa83d28c89676e2fd662e9afe8bd120e58b24d884e4ed13de8457e685d35cfc95",
+    "verificationTimestamp": 1788525427,
+    "assertDrained": true,
+    "stockPrincipal": "0",
+    "usdgPrincipal": "0",
+    "stockIdle": "24697449583",
+    "usdgIdle": "0",
+    "positionLiquidity": "0",
+    "stockReserve": "0",
+    "usdgReserve": "0",
+    "cumulativeLossUSDG": "7114347144922874",
+    "allocationPaused": true,
+    "swapsPaused": true,
+    "emergencyMode": false,
+    "vaultToAdapterAllowanceStock": "0",
+    "vaultToAdapterAllowanceUsdg": "0"
+  },
+  "nextRequiredAction": "Migrate the timelock proposer, canceller and executor off the single deployer EOA to the approved multisig policy, and complete the external security review, before accepting any production allocation."
+}
