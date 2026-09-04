@@ -159,12 +159,25 @@ exchange-rate and loss-aware redemption accounting, Uniswap v4 position lifecycl
 settlement, reserve-backed impermanent-loss coverage, oracle and pool-manipulation
 resistance, liquidity-shortfall handling, role separation, upgrades, and emergency controls.
 
-Reproducible source snapshots:
+Reproducible source snapshots. These are the commits whose bytecode matches what is live on
+mainnet — review these, not the earlier snapshots quoted in older drafts, which predate the
+oracle-priced-loss upgrade:
 
 - `LP_VaultsUniswap` commit
-  [`0bcf8c993906aedd23a59a2c73b88c169d90fe55`](https://github.com/joshschcom/LP_VaultsUniswap/commit/0bcf8c993906aedd23a59a2c73b88c169d90fe55)
+  [`b96914e0ff562bbaf64ca94acfbd4eef0643bcdb`](https://github.com/joshschcom/LP_VaultsUniswap/commit/b96914e0ff562bbaf64ca94acfbd4eef0643bcdb)
+  — the last change to `src/` before the deployed implementations were built. Reproducing the
+  vault requires linking `SettlementLib` at
+  `0x813AbFeC0DE50f8674798CbaB72Ed7b5D8CcB9cB`; see
+  [`deployments/README.md`](./deployments/README.md) for the runtime code hashes.
 - `peridot-contracts-2-5` commit
-  [`592da09a5752774f8834a3f90d768e8d1344e539`](https://github.com/PeridotFinance/peridot-contracts-2-5/commit/592da09a5752774f8834a3f90d768e8d1344e539)
+  [`895dc6f0c101597277c571d43f040ca6f11bfd6e`](https://github.com/PeridotFinance/peridot-contracts-2-5/commit/895dc6f0c101597277c571d43f040ca6f11bfd6e)
+  — the boosted pUSDG delegate reading `withdrawableAssets` for cash accounting.
+
+Findings from the post-upgrade canary that a reviewer should weigh are recorded in
+[`deployments/robinhood-mainnet.post-upgrade-canary.execution.json`](./deployments/robinhood-mainnet.post-upgrade-canary.execution.json),
+in particular the checkpoint branch gap: when gross value is at or above benchmark but one
+side sits below its principal, neither the loss nor the gain branch fires, and the shorted
+side cannot be drained in its native token without a settlement swap.
 
 ## Boosted pUSDG integration
 

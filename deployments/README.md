@@ -262,3 +262,38 @@ the settlement-swap pause is in
 [`deployments/robinhood-mainnet.nvda.canary.enable-allocation.json`](./robinhood-mainnet.nvda.canary.enable-allocation.json).
 The generic template intentionally retains unresolved placeholders and must not be used
 as an executable manifest.
+
+## Governance migration
+
+The timelock's proposer, canceller and executor are still the bootstrap deployer EOA
+`0x94696d767e65a75581145646960FA0eC886cE5d2` with a one-hour minimum delay. **Migrating
+those roles to the approved multisig is the outstanding gate on production TVL.**
+
+The timelock is self-administered with no external admin, so role and delay changes only
+happen as timelock self-calls. `MigrateTimelockGovernance.s.sol` prints them in two phases
+and refuses to collapse the two:
+
+```bash
+# Read the current topology without printing any payload
+TIMELOCK=0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498 \
+GOVERNANCE_MULTISIG=<multisig> OUTGOING_GOVERNOR=0x94696d767e65a75581145646960FA0eC886cE5d2 \
+MIGRATION_PHASE=status \
+forge script script/MigrateTimelockGovernance.s.sol:MigrateTimelockGovernance --rpc-url "$ROBINHOOD_RPC_URL"
+```
+
+1. `MIGRATION_PHASE=grant` prints the grants, plus an optional `NEW_MIN_DELAY` increase and
+   an optional `OPEN_EXECUTOR=true`. Schedule and execute each through
+   `OperateVaultTimelock.s.sol`, chaining predecessors.
+2. **Prove the multisig can schedule *and* execute a trivial operation.** Do not skip this.
+3. `MIGRATION_PHASE=revoke` prints the removals for the outgoing EOA. It reverts
+   `GRANT_PHASE_NOT_COMPLETE` until the multisig already holds all three roles on-chain,
+   so the sequence cannot be run backwards.
+4. Confirm afterwards that the outgoing governor holds none of the three roles and that no
+   operation it proposed is still pending.
+
+Running revoke before grant would leave the timelock with no proposer and freeze every
+proxy it owns permanently. That ordering is enforced by the script, not just the runbook,
+and `test/TimelockGovernanceMigration.t.sol` demonstrates the failure it prevents.
+
+The incoming governor must be a contract. Handing the roles to another EOA would recreate
+the single-key trust assumption the migration exists to remove.
