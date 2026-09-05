@@ -22,6 +22,11 @@ import { console2 } from "forge-std/console2.sol";
  *      sequence cannot be run backwards and leave the timelock with no proposer — which
  *      would permanently freeze every proxy this timelock owns.
  */
+interface ISafeQuorum {
+    function getThreshold() external view returns (uint256);
+    function getOwners() external view returns (address[] memory);
+}
+
 contract MigrateTimelockGovernance is Script {
     uint256 internal constant ROBINHOOD_CHAIN_ID = 4663;
     uint256 internal constant MAX_DELAY = 30 days;
@@ -36,8 +41,12 @@ contract MigrateTimelockGovernance is Script {
         require(multisig != address(0) && outgoing != address(0), "ZERO_GOVERNOR");
         require(multisig != outgoing, "MULTISIG_IS_OUTGOING_GOVERNOR");
         // A bootstrap EOA is what this migration exists to remove. Requiring code here stops
-        // the migration silently re-creating the same single-key trust assumption.
+        // the migration silently re-creating the same single-key trust assumption. Note that
+        // a Safe address is chain-specific: one deployed on another chain has no code here,
+        // and granting the roles to it would leave the timelock with a proposer that can
+        // never propose.
         require(multisig.code.length != 0, "MULTISIG_NOT_CONTRACT");
+        _requireRealQuorum(multisig, outgoing);
 
         bytes32 proposer = timelock.PROPOSER_ROLE();
         bytes32 canceller = timelock.CANCELLER_ROLE();
@@ -60,6 +69,30 @@ contract MigrateTimelockGovernance is Script {
             _printRevocations(timelock, multisig, outgoing, proposer, canceller, executor);
         } else {
             revert("UNKNOWN_MIGRATION_PHASE");
+        }
+    }
+
+    /**
+     * @dev A 1-of-1 Safe owned by the outgoing governor is the same key with an extra hop, not
+     *      a migration. Where the incoming governor answers the Safe interface, insist on a
+     *      real quorum. Non-Safe governors (a DAO executor, a custom module) do not answer
+     *      these calls and are allowed through, since this cannot verify their internals.
+     */
+    function _requireRealQuorum(address multisig, address outgoing) internal view {
+        try ISafeQuorum(multisig).getThreshold() returns (uint256 threshold) {
+            require(
+                threshold >= 2 || vm.envOr("ALLOW_SINGLE_SIGNER", false), "SAFE_THRESHOLD_TOO_LOW"
+            );
+            try ISafeQuorum(multisig).getOwners() returns (address[] memory owners) {
+                require(
+                    owners.length >= 2 || vm.envOr("ALLOW_SINGLE_SIGNER", false),
+                    "SAFE_TOO_FEW_OWNERS"
+                );
+                // A Safe whose only owner is the governor being removed changes nothing.
+                if (owners.length == 1) require(owners[0] != outgoing, "SAFE_OWNED_BY_OUTGOING");
+            } catch { }
+        } catch {
+            // Not a Safe. Nothing further can be checked from here.
         }
     }
 
