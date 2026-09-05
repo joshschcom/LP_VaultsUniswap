@@ -9,6 +9,7 @@ import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 
 import { RobinhoodBoostedVault } from "../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../src/libraries/VaultTypes.sol";
 import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapter.sol";
 import { MockERC20 } from "./mocks/MockERC20.sol";
 import { MockOracleGuard } from "./mocks/MockOracleGuard.sol";
@@ -46,7 +47,7 @@ contract RobinhoodBoostedVaultTest is Test {
         adapter.setVault(address(vault));
 
         PoolKey memory key = _poolKey();
-        RobinhoodBoostedVault.PairConfig memory config = RobinhoodBoostedVault.PairConfig({
+        PairConfig memory config = PairConfig({
             stockToken: address(stock),
             usdg: address(usdg),
             stockAccount: stockAccount,
@@ -92,6 +93,11 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(vault.liquidAssets(PAIR_ID, address(usdg)), 1_000e6);
     }
 
+    function testSideAccountLookupSupportsBoostedPTokenValidation() external view {
+        assertEq(vault.sideAccount(PAIR_ID, address(stock)), stockAccount);
+        assertEq(vault.sideAccount(PAIR_ID, address(usdg)), usdgAccount);
+    }
+
     function testRebalanceDeploysOnlyMatchedOracleValue() external {
         _depositPair(20e18, 1_000e6);
         vm.prank(keeper);
@@ -102,6 +108,7 @@ contract RobinhoodBoostedVaultTest is Test {
         IUniswapV4PairedAdapter.PositionState memory position = adapter.positionState(PAIR_ID);
         assertEq(position.stockAmount, 10e18);
         assertEq(position.usdgAmount, 1_000e6);
+        _assertVaultAllowancesZero();
     }
 
     function testCheckpointSharesLossAtEqualPercentage() external {
@@ -114,6 +121,47 @@ contract RobinhoodBoostedVaultTest is Test {
         int256 pnl = vault.checkpoint(PAIR_ID, block.timestamp + 60);
 
         assertEq(pnl, -300e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 8.5e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
+    }
+
+    function testSkewedPoolCannotManufactureLossAtCheckpoint() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Pool composition says half the position evaporated; the oracle-priced composition
+        // says the position is intact. Loss accounting must follow the oracle.
+        adapter.setPosition(PAIR_ID, 5e18, 500e6);
+        adapter.setReferencePosition(PAIR_ID, 10e18, 1_000e6);
+
+        vm.prank(keeper);
+        int256 pnl = vault.checkpoint(PAIR_ID, block.timestamp + 60);
+
+        assertEq(pnl, 0, "pool skew must not manufacture a loss");
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 1_000e6);
+        assertEq(vault.ledger(PAIR_ID).cumulativeLossUSDG, 0);
+
+        // totalPairAssets stays the pool-priced market view, deliberately divergent.
+        (uint256 stockAssets,) = vault.totalPairAssets(PAIR_ID);
+        assertEq(stockAssets, 5e18);
+    }
+
+    function testSkewedPoolCannotMaskRealLossAtCheckpoint() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Inverse of the above: the pool is pushed to look healthy while the oracle-priced
+        // composition carries a genuine $300 shortfall against the $2,000 benchmark.
+        adapter.setPosition(PAIR_ID, 20e18, 2_000e6);
+        adapter.setReferencePosition(PAIR_ID, 8e18, 900e6);
+
+        vm.prank(keeper);
+        int256 pnl = vault.checkpoint(PAIR_ID, block.timestamp + 60);
+
+        assertEq(pnl, -300e18, "pool skew must not mask a real loss");
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 8.5e18);
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
     }
@@ -131,6 +179,7 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(reserve.available(PAIR_ID, address(usdg)), 20e6);
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 10.8e18);
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 1_080e6);
+        _assertVaultAllowancesZero();
     }
 
     function testIdleWithdrawalDoesNotNeedOracle() external {
@@ -145,6 +194,106 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(loss, 0);
         assertEq(stock.balanceOf(receiver), 3e18);
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 7e18);
+    }
+
+    function testIdleWithdrawalRecognizesSharedLossWhileLiquidityRemains() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Ten stock remain idle while the matched position moves from
+        // 10 stock / 1,000 USDG to 7 stock / 1,400 USDG. At a $200 stock
+        // price, gross assets are $4,800 against a $5,000 benchmark.
+        oracle.setPrices(200e18, 1e18);
+        adapter.setPosition(PAIR_ID, 7e18, 1_400e6);
+
+        vm.prank(stockAccount);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 10e18, receiver, block.timestamp + 60);
+
+        assertEq(returned, 10e18);
+        assertEq(loss, 0.8e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 9.2e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 960e6);
+        assertEq(vault.ledger(PAIR_ID).cumulativeLossUSDG, 200e18);
+    }
+
+    function testIdleWithdrawalWithOpenLiquidityFailsClosedOnOracleError() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        oracle.setShouldRevert(true);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, block.timestamp + 60);
+
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 20e18);
+        // Custody still holds ten idle stock, but none of it is reachable while the
+        // oracle is down and LP liquidity remains open.
+        assertEq(vault.liquidAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
+        assertEq(stock.balanceOf(receiver), 0);
+    }
+
+    function testWithdrawableAssetsReportsIdleWhenNoLiquidityIsOpen() external {
+        _depositPair(10e18, 1_000e6);
+        oracle.setShouldRevert(true);
+
+        // No position is open, so the oracle-free idle path stays available.
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 10e18);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(usdg)), 1_000e6);
+    }
+
+    function testWithdrawableAssetsTracksOracleHealthWhileLiquidityIsOpen() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        uint256 idle = vault.liquidAssets(PAIR_ID, address(stock));
+        assertGt(idle, 0);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), idle);
+
+        oracle.setShouldRevert(true);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
+
+        oracle.setShouldRevert(false);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), idle);
+    }
+
+    function testWithdrawableAssetsIsZeroInEmergencyModeWithOpenLiquidity() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        vm.prank(guardian);
+        vault.setPairPause(PAIR_ID, true, true, true);
+
+        // withdrawForSide reverts EmergencyMode on the guarded path, so no idle is reachable.
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
+    }
+
+    function testWithdrawableAssetsNeverExceedsRemainingPrincipal() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Shared loss scales principal below the idle balance still held in custody.
+        oracle.setPrices(200e18, 1e18);
+        adapter.setPosition(PAIR_ID, 7e18, 1_400e6);
+        vm.prank(keeper);
+        vault.checkpoint(PAIR_ID, block.timestamp + 60);
+
+        uint256 principal = vault.accountedAssets(PAIR_ID, address(stock));
+        uint256 withdrawable = vault.withdrawableAssets(PAIR_ID, address(stock));
+        assertLe(withdrawable, principal);
+        assertLe(withdrawable, vault.liquidAssets(PAIR_ID, address(stock)));
+    }
+
+    function testWithdrawableAssetsRejectsUnsupportedToken() external {
+        _depositPair(10e18, 1_000e6);
+        vm.expectRevert(RobinhoodBoostedVault.UnsupportedToken.selector);
+        vault.withdrawableAssets(PAIR_ID, address(0xBEEF));
     }
 
     function testWithdrawalUnwindsOnlyNeededSlice() external {
@@ -176,6 +325,27 @@ contract RobinhoodBoostedVaultTest is Test {
         assertEq(loss, 1.5e18);
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 3.5e18);
         assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 850e6);
+    }
+
+    function testSingleSidedPositionCanSettleUsingCounterPrincipal() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Model a full-range position that has migrated entirely into USDG while
+        // preserving the pair's oracle value.
+        usdg.mint(address(adapter), 1_000e6);
+        adapter.setPosition(PAIR_ID, 0, 2_000e6);
+
+        vm.prank(stockAccount);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 10e18, receiver, block.timestamp + 60);
+
+        assertGt(returned, 9.9e18);
+        assertLt(returned, 10e18);
+        assertGt(loss, 0);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 0);
+        assertEq(stock.balanceOf(receiver), returned);
     }
 
     function testStaleCheckpointIsRefreshedInsideLPWithdrawal() external {
@@ -221,9 +391,60 @@ contract RobinhoodBoostedVaultTest is Test {
         vm.expectRevert(bytes("ORACLE"));
         vault.emergencyDecrease(PAIR_ID, liquidity / 2, block.timestamp + 60);
 
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         assertFalse(config.emergencyMode);
         assertEq(adapter.positionState(PAIR_ID).liquidity, liquidity);
+    }
+
+    function testEmergencyDecreaseRecognizesLossBeforeIdleWithdrawal() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Model the position at 20 stock / 500 USDG and a $25 stock price:
+        // $1,000 of gross assets against a $1,250 benchmark.
+        stock.mint(address(adapter), 10e18);
+        adapter.setPosition(PAIR_ID, 20e18, 500e6);
+        oracle.setPrices(25e18, 1e18);
+        uint128 liquidity = adapter.positionState(PAIR_ID).liquidity;
+
+        vm.prank(guardian);
+        vault.emergencyDecrease(PAIR_ID, liquidity, block.timestamp + 60);
+
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 8e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(usdg)), 800e6);
+        assertEq(vault.ledger(PAIR_ID).cumulativeLossUSDG, 250e18);
+
+        vm.prank(stockAccount);
+        vm.expectRevert(RobinhoodBoostedVault.InsufficientPrincipal.selector);
+        vault.withdrawForSide(PAIR_ID, address(stock), 10e18, receiver, 0);
+
+        // Once the LP is fully removed and its loss is allocated, the remaining
+        // emergency idle claim stays withdrawable even if the oracle later fails.
+        oracle.setShouldRevert(true);
+        vm.prank(stockAccount);
+        (uint256 returned, uint256 loss) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 8e18, receiver, 0);
+        assertEq(returned, 8e18);
+        assertEq(loss, 0);
+        assertEq(stock.balanceOf(receiver), 8e18);
+        assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 0);
+    }
+
+    function testPartialEmergencyDecreaseBlocksIdleWithdrawalUntilFullyExited() external {
+        _depositPair(10e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+        uint128 liquidity = adapter.positionState(PAIR_ID).liquidity;
+
+        vm.prank(guardian);
+        vault.emergencyDecrease(PAIR_ID, liquidity / 2, block.timestamp + 60);
+
+        assertGt(vault.liquidAssets(PAIR_ID, address(stock)), 1e18);
+        assertGt(adapter.positionState(PAIR_ID).liquidity, 0);
+        vm.prank(stockAccount);
+        vm.expectRevert(RobinhoodBoostedVault.EmergencyMode.selector);
+        vault.withdrawForSide(PAIR_ID, address(stock), 1e18, receiver, 0);
     }
 
     function testCurrentTimestampDeadlineIsAcceptedForLPWithdrawal() external {
@@ -239,11 +460,98 @@ contract RobinhoodBoostedVaultTest is Test {
     }
 
     function testDeprecatedMinimumDeadlineSlotMustRemainZero() external {
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         config.deprecatedMinDeadlineDelay = 1;
 
         vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
         vault.updatePairRisk(PAIR_ID, config);
+    }
+
+    function testSettlementSlippageCannotExceedFivePercent() external {
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
+        config.maxSwapSlippageBps = 501;
+
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.updatePairRisk(PAIR_ID, config);
+    }
+
+    function testRegistrationRequiresRemovalToleranceToCoverHalfTheRemovalDeviation() external {
+        // A pool deviation d moves a full-range position's amounts by about d/2, so the
+        // amount tolerance must cover half the removal bound plus the operational buffer.
+        oracle.setMaxRemovalDeviationBps(600);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
+
+        IUniswapV4PairedAdapter.RegisterPairParams memory tooTight =
+            IUniswapV4PairedAdapter.RegisterPairParams({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                poolKey: _poolKey(),
+                expectedPoolId: keccak256("pool"),
+                removalToleranceBps: 399
+            });
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.registerPair(keccak256("SECOND"), config, tooTight);
+
+        // 600 / 2 + 100 = 400 is exactly sufficient.
+        IUniswapV4PairedAdapter.RegisterPairParams memory sufficient = tooTight;
+        sufficient.removalToleranceBps = 400;
+        vault.registerPair(keccak256("SECOND"), config, sufficient);
+        assertEq(vault.pairConfig(keccak256("SECOND")).stockToken, address(stock));
+    }
+
+    function testRemovalToleranceCheckRoundsTheHalfUp() external {
+        // An odd bound needs ceil(601/2) + 100 = 401. Flooring would accept 400, one bp
+        // short of the amount deviation the tolerance actually has to absorb.
+        oracle.setMaxRemovalDeviationBps(601);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
+        IUniswapV4PairedAdapter.RegisterPairParams memory params =
+            IUniswapV4PairedAdapter.RegisterPairParams({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                poolKey: _poolKey(),
+                expectedPoolId: keccak256("pool"),
+                removalToleranceBps: 400
+            });
+
+        vm.expectRevert(RobinhoodBoostedVault.InvalidConfiguration.selector);
+        vault.registerPair(keccak256("ODD"), config, params);
+
+        params.removalToleranceBps = 401;
+        vault.registerPair(keccak256("ODD"), config, params);
+        assertEq(vault.pairConfig(keccak256("ODD")).stockToken, address(stock));
+    }
+
+    function testExitsToleratePoolDeviationThatBlocksAllocation() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Pool drifts past the allocation bound but stays inside the removal bound: adding
+        // liquidity must stop while holders can still get out.
+        oracle.setAllocationShouldRevert(true);
+        vm.prank(keeper);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        vm.prank(stockAccount);
+        (uint256 returned,) =
+            vault.withdrawForSide(PAIR_ID, address(stock), 5e18, receiver, block.timestamp + 60);
+        assertEq(returned, 5e18, "exit must survive an allocation-bound breach");
+        assertEq(stock.balanceOf(receiver), 5e18);
+    }
+
+    function testExitsStillFailClosedBeyondTheRemovalBound() external {
+        _depositPair(20e18, 1_000e6);
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        // Past the wider removal bound the exit must still fail closed rather than unwind
+        // against a pool the oracle cannot vouch for.
+        oracle.setRemovalShouldRevert(true);
+        vm.prank(stockAccount);
+        vm.expectRevert(bytes("ORACLE"));
+        vault.withdrawForSide(PAIR_ID, address(stock), 5e18, receiver, block.timestamp + 60);
+        assertEq(vault.withdrawableAssets(PAIR_ID, address(stock)), 0);
     }
 
     function testFeeOnTransferToWithdrawalReceiverRevertsWithoutLedgerDrift() external {
@@ -312,7 +620,7 @@ contract RobinhoodBoostedVaultTest is Test {
     function testGuardianCanPauseButCannotUnpause() external {
         vm.prank(guardian);
         vault.setPairPause(PAIR_ID, true, true, true);
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         assertTrue(config.emergencyMode);
 
         vm.prank(guardian);
@@ -341,7 +649,7 @@ contract RobinhoodBoostedVaultTest is Test {
     }
 
     function testConfiguredPairValueCapStillFailsClosed() external {
-        RobinhoodBoostedVault.PairConfig memory config = vault.pairConfig(PAIR_ID);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
         config.maxPairValueUSDG = uint128(100e18);
         vault.updatePairRisk(PAIR_ID, config);
 
@@ -350,6 +658,24 @@ contract RobinhoodBoostedVaultTest is Test {
         vault.depositForPair(PAIR_ID, address(stock), 2e18);
 
         assertEq(vault.accountedAssets(PAIR_ID, address(stock)), 0);
+    }
+
+    function testRebalanceAutoPausesAllocationWhenExistingPairExceedsCap() external {
+        _depositPair(1e18, 100e6);
+        PairConfig memory config = vault.pairConfig(PAIR_ID);
+        config.maxPairValueUSDG = uint128(250e18);
+        vault.updatePairRisk(PAIR_ID, config);
+        oracle.setPrices(200e18, 1e18);
+
+        vm.prank(keeper);
+        vault.rebalance(PAIR_ID, block.timestamp + 60);
+
+        config = vault.pairConfig(PAIR_ID);
+        assertTrue(config.allocationPaused);
+        assertEq(adapter.positionState(PAIR_ID).liquidity, 0);
+        assertEq(vault.liquidAssets(PAIR_ID, address(stock)), 1e18);
+        assertEq(vault.liquidAssets(PAIR_ID, address(usdg)), 100e6);
+        _assertVaultAllowancesZero();
     }
 
     function testFuzzRebalanceNeverConsumesUnmatchedStock(uint96 stockRaw, uint64 usdgRaw)
@@ -372,6 +698,13 @@ contract RobinhoodBoostedVaultTest is Test {
         vault.depositForPair(PAIR_ID, address(stock), stockAmount);
         vm.prank(usdgAccount);
         vault.depositForPair(PAIR_ID, address(usdg), usdgAmount);
+    }
+
+    function _assertVaultAllowancesZero() internal view {
+        assertEq(stock.allowance(address(vault), address(adapter)), 0);
+        assertEq(usdg.allowance(address(vault), address(adapter)), 0);
+        assertEq(stock.allowance(address(vault), address(reserve)), 0);
+        assertEq(usdg.allowance(address(vault), address(reserve)), 0);
     }
 
     function _poolKey() internal view returns (PoolKey memory key) {

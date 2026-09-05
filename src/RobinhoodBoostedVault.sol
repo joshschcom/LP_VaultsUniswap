@@ -19,6 +19,8 @@ import { IStockOracleGuard } from "./interfaces/IStockOracleGuard.sol";
 import { IStrategyLossReserve } from "./interfaces/IStrategyLossReserve.sol";
 import { IUniswapV4PairedAdapter } from "./interfaces/IUniswapV4PairedAdapter.sol";
 import { VaultMath } from "./libraries/VaultMath.sol";
+import { SettlementLib } from "./libraries/SettlementLib.sol";
+import { PairConfig, PairLedger } from "./libraries/VaultTypes.sol";
 
 contract RobinhoodBoostedVault is
     Initializable,
@@ -32,37 +34,7 @@ contract RobinhoodBoostedVault is
     bytes32 public constant KEEPER_ROLE = keccak256("KEEPER_ROLE");
     bytes32 public constant GUARDIAN_ROLE = keccak256("GUARDIAN_ROLE");
     uint256 internal constant BPS = 10_000;
-
-    struct PairConfig {
-        address stockToken;
-        address usdg;
-        address stockAccount;
-        address usdgAccount;
-        uint128 maxPairValueUSDG;
-        uint128 maxSettlementSwapUSDG;
-        uint64 maxCheckpointAge;
-        // Retained only to preserve the proxy storage layout. Must remain zero.
-        uint32 deprecatedMinDeadlineDelay;
-        uint32 maxDeadlineDelay;
-        uint16 reserveFeeBps;
-        uint16 maxSwapSlippageBps;
-        uint16 withdrawOverUnwindBps;
-        uint8 stockDecimals;
-        uint8 usdgDecimals;
-        bool allocationPaused;
-        bool swapsPaused;
-        bool emergencyMode;
-        bool exists;
-    }
-
-    struct PairLedger {
-        uint256 stockPrincipal;
-        uint256 usdgPrincipal;
-        uint256 stockIdle;
-        uint256 usdgIdle;
-        uint256 cumulativeLossUSDG;
-        uint64 lastCheckpoint;
-    }
+    uint256 internal constant REMOVAL_OPERATIONAL_BUFFER_BPS = 100;
 
     IStockOracleGuard public oracleGuard;
     IStrategyLossReserve public lossReserve;
@@ -179,15 +151,18 @@ contract RobinhoodBoostedVault is
 
         oracleGuard.pricesUSD18(pairId);
         oracleGuard.validatePoolPrice(pairId, adapterConfig.poolKey);
+        // Round the half up: an odd bound would otherwise accept a tolerance one bp short of
+        // the amount deviation it has to absorb.
+        if (
+            uint256(adapterConfig.removalToleranceBps)
+                < (uint256(oracleGuard.maxRemovalDeviationBps(pairId)) + 1) / 2
+                    + REMOVAL_OPERATIONAL_BUFFER_BPS
+        ) revert InvalidConfiguration();
         liquidityAdapter.registerPair(pairId, adapterConfig);
 
         _pairConfig[pairId] = config;
         _pairConfig[pairId].exists = true;
         _ledger[pairId].lastCheckpoint = uint64(block.timestamp);
-        IERC20(config.stockToken).forceApprove(address(liquidityAdapter), type(uint256).max);
-        IERC20(config.usdg).forceApprove(address(liquidityAdapter), type(uint256).max);
-        IERC20(config.stockToken).forceApprove(address(lossReserve), type(uint256).max);
-        IERC20(config.usdg).forceApprove(address(lossReserve), type(uint256).max);
 
         emit PairRegistered(
             pairId, config.stockToken, config.usdg, config.stockAccount, config.usdgAccount
@@ -257,19 +232,69 @@ contract RobinhoodBoostedVault is
     }
 
     function accountedAssets(bytes32 pairId, address token) external view returns (uint256) {
+        (, uint256 principal) = _sideAmounts(pairId, token);
+        return principal;
+    }
+
+    /// @dev Shared token dispatch for the per-side views. Reverts on an unsupported token.
+    function _sideAmounts(bytes32 pairId, address token)
+        private
+        view
+        returns (uint256 idle, uint256 principal)
+    {
         PairConfig storage config = _config(pairId);
         PairLedger storage pairLedger = _ledger[pairId];
-        if (token == config.stockToken) return pairLedger.stockPrincipal;
-        if (token == config.usdg) return pairLedger.usdgPrincipal;
+        if (token == config.stockToken) return (pairLedger.stockIdle, pairLedger.stockPrincipal);
+        if (token == config.usdg) return (pairLedger.usdgIdle, pairLedger.usdgPrincipal);
+        revert UnsupportedToken();
+    }
+
+    function sideAccount(bytes32 pairId, address token) external view returns (address) {
+        PairConfig storage config = _config(pairId);
+        if (token == config.stockToken) return config.stockAccount;
+        if (token == config.usdg) return config.usdgAccount;
         revert UnsupportedToken();
     }
 
     function liquidAssets(bytes32 pairId, address token) external view returns (uint256) {
-        PairConfig storage config = _config(pairId);
-        PairLedger storage pairLedger = _ledger[pairId];
-        if (token == config.stockToken) return pairLedger.stockIdle;
-        if (token == config.usdg) return pairLedger.usdgIdle;
-        revert UnsupportedToken();
+        (uint256 idle,) = _sideAmounts(pairId, token);
+        return idle;
+    }
+
+    /// @notice Assets for one side that `withdrawForSide` can return in this block.
+    /// @dev Idle is unconditionally withdrawable only once the position is closed. While any
+    ///      LP liquidity remains, every principal reduction routes through the oracle-guarded
+    ///      settle path, so idle counts here only when that path would currently pass.
+    ///      Integrating pTokens must use this, not `liquidAssets`, for cash and utilization
+    ///      accounting; `liquidAssets` reports custody and overstates what is reachable.
+    function withdrawableAssets(bytes32 pairId, address token) external view returns (uint256) {
+        (uint256 idle, uint256 principal) = _sideAmounts(pairId, token);
+        uint256 available = Math.min(idle, principal);
+        if (available == 0) return 0;
+
+        try liquidityAdapter.positionState(pairId) returns (
+            IUniswapV4PairedAdapter.PositionState memory position
+        ) {
+            if (position.liquidity == 0) return available;
+        } catch {
+            return 0;
+        }
+
+        if (_config(pairId).emergencyMode) return 0;
+        // The pool key is read inside its own try: evaluated as an argument to the guarded
+        // call below, an adapter-side revert would escape and make this view revert rather
+        // than report nothing withdrawable.
+        PoolKey memory key;
+        try liquidityAdapter.poolKey(pairId) returns (PoolKey memory poolKey_) {
+            key = poolKey_;
+        } catch {
+            return 0;
+        }
+        try oracleGuard.validateRemovalPrice(pairId, key) returns (uint256, uint256, uint160) {
+            return available;
+        } catch {
+            return 0;
+        }
     }
 
     function totalPairAssets(bytes32 pairId)
@@ -284,6 +309,22 @@ contract RobinhoodBoostedVault is
         stockAssets = pairLedger.stockIdle + position.stockAmount;
         usdgAssets = pairLedger.usdgIdle + position.usdgAmount;
         config;
+    }
+
+    /// @dev Pair assets with the position valued at `sqrtPriceX96` instead of the pool's live
+    ///      price. Loss accounting uses the oracle-derived reference so that pushing the pool
+    ///      cannot manufacture or mask a shortfall. `totalPairAssets` stays pool-priced and is
+    ///      the market view.
+    function _pairAssetsAt(bytes32 pairId, uint160 sqrtPriceX96)
+        internal
+        view
+        returns (uint256 stockAssets, uint256 usdgAssets)
+    {
+        PairLedger storage pairLedger = _ledger[pairId];
+        IUniswapV4PairedAdapter.PositionState memory position =
+            liquidityAdapter.positionStateAt(pairId, sqrtPriceX96);
+        stockAssets = pairLedger.stockIdle + position.stockAmount;
+        usdgAssets = pairLedger.usdgIdle + position.usdgAmount;
     }
 
     function depositForPair(bytes32 pairId, address token, uint256 amount)
@@ -352,6 +393,11 @@ contract RobinhoodBoostedVault is
         PairLedger storage pairLedger = _ledger[pairId];
         // v4 fee deltas are collected first so INCREASE_LIQUIDITY can safely use SETTLE_PAIR.
         _collectFees(pairId, config, pairLedger, deadline);
+        if (_pairCapExceeded(config, pairLedger, stockPrice, usdgPrice)) {
+            config.allocationPaused = true;
+            emit PairPauseUpdated(pairId, true, config.swapsPaused, config.emergencyMode);
+            return;
+        }
 
         uint256 stockValue = VaultMath.valueUSD18(
             pairLedger.stockIdle, config.stockDecimals, stockPrice, Math.Rounding.Floor
@@ -370,8 +416,12 @@ contract RobinhoodBoostedVault is
 
         uint256 stockBalanceBefore = IERC20(config.stockToken).balanceOf(address(this));
         uint256 usdgBalanceBefore = IERC20(config.usdg).balanceOf(address(this));
+        IERC20(config.stockToken).forceApprove(address(liquidityAdapter), stockToPair);
+        IERC20(config.usdg).forceApprove(address(liquidityAdapter), usdgToPair);
         (uint256 stockUsed, uint256 usdgUsed, uint128 liquidityAdded) =
             liquidityAdapter.addLiquidity(pairId, stockToPair, usdgToPair, deadline);
+        IERC20(config.stockToken).forceApprove(address(liquidityAdapter), 0);
+        IERC20(config.usdg).forceApprove(address(liquidityAdapter), 0);
         _requireBalanceDecrease(config.stockToken, stockBalanceBefore, stockUsed);
         _requireBalanceDecrease(config.usdg, usdgBalanceBefore, usdgUsed);
         if (stockUsed > pairLedger.stockIdle || usdgUsed > pairLedger.usdgIdle) {
@@ -403,7 +453,7 @@ contract RobinhoodBoostedVault is
         if (config.emergencyMode) revert EmergencyMode();
         _checkDeadline(config, deadline);
         PairLedger storage pairLedger = _ledger[pairId];
-        (pnlUSDG,,) = _checkpointPair(pairId, config, pairLedger, deadline);
+        (pnlUSDG,,,) = _checkpointPair(pairId, config, pairLedger, deadline);
     }
 
     function withdrawForSide(
@@ -422,16 +472,24 @@ contract RobinhoodBoostedVault is
         if (requested == 0) return (0, 0);
 
         uint256 idle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
-        if (idle < requested) {
+        bool hasOpenLiquidity = liquidityAdapter.positionState(pairId).liquidity != 0;
+        // Idle is part of the pair's shared benchmark while any LP liquidity remains.
+        // Settle current strategy losses before either side can reduce its claim, even
+        // when that side's requested token is already available in the vault.
+        if (idle < requested || hasOpenLiquidity) {
             if (config.emergencyMode) revert EmergencyMode();
             _checkDeadline(config, deadline);
             uint256 stockPrice;
             uint256 usdgPrice;
+            // Derived from oracle prices alone, so it is constant for the whole call and can
+            // be reused after the unwind and settlement without revalidating.
+            uint160 referenceSqrtPriceX96;
             if (_checkpointIsStale(config, pairLedger)) {
-                (, stockPrice, usdgPrice) = _checkpointPair(pairId, config, pairLedger, deadline);
+                (, stockPrice, usdgPrice, referenceSqrtPriceX96) =
+                    _checkpointPair(pairId, config, pairLedger, deadline);
             } else {
                 PoolKey memory key = liquidityAdapter.poolKey(pairId);
-                oracleGuard.validatePoolPrice(pairId, key);
+                (,, referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
                 (stockPrice, usdgPrice) = oracleGuard.pricesUSD18(pairId);
                 _collectFees(pairId, config, pairLedger, deadline);
             }
@@ -440,7 +498,7 @@ contract RobinhoodBoostedVault is
             _settleShortfall(
                 pairId, config, pairLedger, stockSide, requested, stockPrice, usdgPrice, deadline
             );
-            _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice);
+            _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice, referenceSqrtPriceX96);
         }
 
         uint256 finalIdle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
@@ -477,7 +535,8 @@ contract RobinhoodBoostedVault is
         config.swapsPaused = true;
         config.emergencyMode = true;
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
+        (uint256 stockPrice, uint256 usdgPrice) = oracleGuard.pricesUSD18(pairId);
         uint256 stockBalanceBefore = IERC20(config.stockToken).balanceOf(address(this));
         uint256 usdgBalanceBefore = IERC20(config.usdg).balanceOf(address(this));
         (uint256 stockReceived, uint256 usdgReceived, uint128 liquidityRemoved) =
@@ -487,6 +546,9 @@ contract RobinhoodBoostedVault is
         PairLedger storage pairLedger = _ledger[pairId];
         pairLedger.stockIdle += stockReceived;
         pairLedger.usdgIdle += usdgReceived;
+        // Allocate any shared LP loss atomically with the guardian exit. If this was
+        // only a partial exit, withdrawForSide remains closed while liquidity remains.
+        _recognizeLoss(pairId, config, pairLedger, stockPrice, usdgPrice, referenceSqrtPriceX96);
         emit EmergencyLiquidityDecreased(pairId, liquidityRemoved, stockReceived, usdgReceived);
         emit PairPauseUpdated(pairId, true, true, true);
     }
@@ -523,13 +585,17 @@ contract RobinhoodBoostedVault is
         uint256 usdgReserve = Math.mulDiv(usdgFees, config.reserveFeeBps, BPS);
         if (stockReserve != 0) {
             uint256 balanceBefore = IERC20(config.stockToken).balanceOf(address(this));
+            IERC20(config.stockToken).forceApprove(address(lossReserve), stockReserve);
             uint256 received = lossReserve.deposit(pairId, config.stockToken, stockReserve);
+            IERC20(config.stockToken).forceApprove(address(lossReserve), 0);
             _requireBalanceDecrease(config.stockToken, balanceBefore, stockReserve);
             if (received != stockReserve) revert BalanceDeltaMismatch();
         }
         if (usdgReserve != 0) {
             uint256 balanceBefore = IERC20(config.usdg).balanceOf(address(this));
+            IERC20(config.usdg).forceApprove(address(lossReserve), usdgReserve);
             uint256 received = lossReserve.deposit(pairId, config.usdg, usdgReserve);
+            IERC20(config.usdg).forceApprove(address(lossReserve), 0);
             _requireBalanceDecrease(config.usdg, balanceBefore, usdgReserve);
             if (received != usdgReserve) revert BalanceDeltaMismatch();
         }
@@ -548,13 +614,21 @@ contract RobinhoodBoostedVault is
         PairConfig storage config,
         PairLedger storage pairLedger,
         uint256 deadline
-    ) internal returns (int256 pnlUSDG, uint256 stockPrice, uint256 usdgPrice) {
+    )
+        internal
+        returns (
+            int256 pnlUSDG,
+            uint256 stockPrice,
+            uint256 usdgPrice,
+            uint160 referenceSqrtPriceX96
+        )
+    {
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        oracleGuard.validatePoolPrice(pairId, key);
+        (,, referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
         (stockPrice, usdgPrice) = oracleGuard.pricesUSD18(pairId);
 
         _collectFees(pairId, config, pairLedger, deadline);
-        (uint256 stockAssets, uint256 usdgAssets) = totalPairAssets(pairId);
+        (uint256 stockAssets, uint256 usdgAssets) = _pairAssetsAt(pairId, referenceSqrtPriceX96);
         uint256 benchmark = _benchmarkUSDG(config, pairLedger, stockPrice, usdgPrice);
         uint256 gross = _grossUSDG(config, stockAssets, usdgAssets, stockPrice, usdgPrice);
 
@@ -620,7 +694,7 @@ contract RobinhoodBoostedVault is
         );
         uint128 liquidityToRemove = uint128(Math.min(liquidityRaw, position.liquidity));
         PoolKey memory key = liquidityAdapter.poolKey(pairId);
-        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validatePoolPrice(pairId, key);
+        (,, uint160 referenceSqrtPriceX96) = oracleGuard.validateRemovalPrice(pairId, key);
         uint256 stockBalanceBefore = IERC20(config.stockToken).balanceOf(address(this));
         uint256 usdgBalanceBefore = IERC20(config.usdg).balanceOf(address(this));
         (uint256 stockReceived, uint256 usdgReceived,) = liquidityAdapter.decreaseLiquidity(
@@ -642,123 +716,21 @@ contract RobinhoodBoostedVault is
         uint256 usdgPrice,
         uint256 deadline
     ) internal {
-        uint256 targetIdle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
-        if (targetIdle >= requested) return;
-        uint256 deficit = requested - targetIdle;
-        uint256 deficitValue = stockSide
-            ? VaultMath.valueUSD18(deficit, config.stockDecimals, stockPrice, Math.Rounding.Ceil)
-            : VaultMath.valueUSD18(deficit, config.usdgDecimals, usdgPrice, Math.Rounding.Ceil);
-
-        address targetToken = stockSide ? config.stockToken : config.usdg;
-        uint256 reserveAvailable = lossReserve.available(pairId, targetToken);
-        if (reserveAvailable != 0) {
-            uint256 requestedReserve = Math.min(deficit, reserveAvailable);
-            uint256 requestedReserveValue = stockSide
-                ? VaultMath.valueUSD18(
-                    requestedReserve, config.stockDecimals, stockPrice, Math.Rounding.Ceil
-                )
-                : VaultMath.valueUSD18(
-                    requestedReserve, config.usdgDecimals, usdgPrice, Math.Rounding.Ceil
-                );
-            uint256 balanceBefore = IERC20(targetToken).balanceOf(address(this));
-            uint256 reportedCovered = lossReserve.cover(
-                pairId, targetToken, requestedReserve, requestedReserveValue, deficitValue
-            );
-            uint256 covered = _observedBalanceIncrease(targetToken, balanceBefore);
-            if (reportedCovered != covered) revert BalanceDeltaMismatch();
-            if (stockSide) pairLedger.stockIdle += covered;
-            else pairLedger.usdgIdle += covered;
-            targetIdle += covered;
-            if (targetIdle >= requested) return;
-            deficit = requested - targetIdle;
-        } else if (stockSide) {
-            // If the stock reserve is empty, USDG reserve may fund one bounded USDG->stock
-            // settlement. Only one reserve cover call is made per withdrawal event.
-            uint256 usdgNeeded = VaultMath.amountFromValueUSD18(
-                deficitValue, config.usdgDecimals, usdgPrice, Math.Rounding.Ceil
-            );
-            uint256 usdgAvailable = lossReserve.available(pairId, config.usdg);
-            uint256 requestedUsdgReserve = Math.min(usdgNeeded, usdgAvailable);
-            if (requestedUsdgReserve != 0) {
-                uint256 requestedUsdgValue = VaultMath.valueUSD18(
-                    requestedUsdgReserve, config.usdgDecimals, usdgPrice, Math.Rounding.Ceil
-                );
-                uint256 balanceBefore = IERC20(config.usdg).balanceOf(address(this));
-                uint256 reportedCovered = lossReserve.cover(
-                    pairId, config.usdg, requestedUsdgReserve, requestedUsdgValue, deficitValue
-                );
-                uint256 coveredUsdg = _observedBalanceIncrease(config.usdg, balanceBefore);
-                if (reportedCovered != coveredUsdg) revert BalanceDeltaMismatch();
-                pairLedger.usdgIdle += coveredUsdg;
-            }
-        }
-
-        if (config.swapsPaused) return;
-        address tokenIn = stockSide ? config.usdg : config.stockToken;
-        uint256 counterIdle = stockSide ? pairLedger.usdgIdle : pairLedger.stockIdle;
-        if (counterIdle == 0) return;
-
-        IUniswapV4PairedAdapter.PositionState memory position =
-            liquidityAdapter.positionState(pairId);
-        uint256 counterAssets =
-            counterIdle + (stockSide ? position.usdgAmount : position.stockAmount);
-        uint256 counterPrincipal = stockSide ? pairLedger.usdgPrincipal : pairLedger.stockPrincipal;
-        if (counterAssets <= counterPrincipal) return;
-        uint256 counterSurplus = counterAssets - counterPrincipal;
-        uint256 amountIn = Math.min(counterIdle, counterSurplus);
-        uint256 remainingTargetIdle = stockSide ? pairLedger.stockIdle : pairLedger.usdgIdle;
-        uint256 remainingDeficit =
-            requested > remainingTargetIdle ? requested - remainingTargetIdle : 0;
-        uint256 remainingDeficitValue = stockSide
-            ? VaultMath.valueUSD18(
-                remainingDeficit, config.stockDecimals, stockPrice, Math.Rounding.Ceil
-            )
-            : VaultMath.valueUSD18(
-                remainingDeficit, config.usdgDecimals, usdgPrice, Math.Rounding.Ceil
-            );
-        uint256 counterNeeded = stockSide
-            ? VaultMath.amountFromValueUSD18(
-                remainingDeficitValue, config.usdgDecimals, usdgPrice, Math.Rounding.Ceil
-            )
-            : VaultMath.amountFromValueUSD18(
-                remainingDeficitValue, config.stockDecimals, stockPrice, Math.Rounding.Ceil
-            );
-        amountIn = Math.min(amountIn, counterNeeded);
-        amountIn = _capSwapAmount(config, stockSide, amountIn, stockPrice, usdgPrice);
-        if (amountIn == 0) return;
-
-        uint256 expectedOut = stockSide
-            ? VaultMath.amountFromValueUSD18(
-                VaultMath.valueUSD18(amountIn, config.usdgDecimals, usdgPrice, Math.Rounding.Floor),
-                config.stockDecimals,
-                stockPrice,
-                Math.Rounding.Floor
-            )
-            : VaultMath.amountFromValueUSD18(
-                VaultMath.valueUSD18(
-                    amountIn, config.stockDecimals, stockPrice, Math.Rounding.Floor
-                ),
-                config.usdgDecimals,
-                usdgPrice,
-                Math.Rounding.Floor
-            );
-        uint256 minOut = Math.mulDiv(expectedOut, BPS - config.maxSwapSlippageBps, BPS);
-        if (minOut == 0) return;
-        uint256 inputBalanceBefore = IERC20(tokenIn).balanceOf(address(this));
-        address outputToken = stockSide ? config.stockToken : config.usdg;
-        uint256 outputBalanceBefore = IERC20(outputToken).balanceOf(address(this));
-        (uint256 used, uint256 output) =
-            liquidityAdapter.swapExactInput(pairId, tokenIn, amountIn, minOut, deadline);
-        _requireBalanceDecrease(tokenIn, inputBalanceBefore, used);
-        _requireBalanceIncrease(outputToken, outputBalanceBefore, output);
-        if (stockSide) {
-            pairLedger.usdgIdle -= used;
-            pairLedger.stockIdle += output;
-        } else {
-            pairLedger.stockIdle -= used;
-            pairLedger.usdgIdle += output;
-        }
-        emit SettlementSwap(pairId, tokenIn, used, output);
+        SettlementLib.settleShortfall(
+            config,
+            pairLedger,
+            SettlementLib.SettleParams({
+                pairId: pairId,
+                stockSide: stockSide,
+                requested: requested,
+                stockPrice: stockPrice,
+                usdgPrice: usdgPrice,
+                deadline: deadline,
+                lossReserve: lossReserve,
+                oracleGuard: oracleGuard,
+                liquidityAdapter: liquidityAdapter
+            })
+        );
     }
 
     function _recognizeLoss(
@@ -766,9 +738,10 @@ contract RobinhoodBoostedVault is
         PairConfig storage config,
         PairLedger storage pairLedger,
         uint256 stockPrice,
-        uint256 usdgPrice
+        uint256 usdgPrice,
+        uint160 referenceSqrtPriceX96
     ) internal {
-        (uint256 stockAssets, uint256 usdgAssets) = totalPairAssets(pairId);
+        (uint256 stockAssets, uint256 usdgAssets) = _pairAssetsAt(pairId, referenceSqrtPriceX96);
         uint256 benchmark = _benchmarkUSDG(config, pairLedger, stockPrice, usdgPrice);
         uint256 gross = _grossUSDG(config, stockAssets, usdgAssets, stockPrice, usdgPrice);
         if (gross >= benchmark || benchmark == 0) return;
@@ -790,36 +763,23 @@ contract RobinhoodBoostedVault is
         );
     }
 
-    function _capSwapAmount(
-        PairConfig storage config,
-        bool stockTarget,
-        uint256 amountIn,
-        uint256 stockPrice,
-        uint256 usdgPrice
-    ) internal view returns (uint256) {
-        uint256 inputValue = stockTarget
-            ? VaultMath.valueUSD18(amountIn, config.usdgDecimals, usdgPrice, Math.Rounding.Floor)
-            : VaultMath.valueUSD18(amountIn, config.stockDecimals, stockPrice, Math.Rounding.Floor);
-        if (inputValue <= config.maxSettlementSwapUSDG) return amountIn;
-        return stockTarget
-            ? VaultMath.amountFromValueUSD18(
-                config.maxSettlementSwapUSDG, config.usdgDecimals, usdgPrice, Math.Rounding.Floor
-            )
-            : VaultMath.amountFromValueUSD18(
-                config.maxSettlementSwapUSDG, config.stockDecimals, stockPrice, Math.Rounding.Floor
-            );
-    }
-
     function _enforcePairCap(
         bytes32 pairId,
         PairConfig storage config,
         PairLedger storage pairLedger
     ) internal view {
         (uint256 stockPrice, uint256 usdgPrice) = oracleGuard.pricesUSD18(pairId);
-        uint256 benchmark = _benchmarkUSDG(config, pairLedger, stockPrice, usdgPrice);
-        if (config.maxPairValueUSDG != 0 && benchmark > config.maxPairValueUSDG) {
-            revert PairCapExceeded();
-        }
+        if (_pairCapExceeded(config, pairLedger, stockPrice, usdgPrice)) revert PairCapExceeded();
+    }
+
+    function _pairCapExceeded(
+        PairConfig storage config,
+        PairLedger storage pairLedger,
+        uint256 stockPrice,
+        uint256 usdgPrice
+    ) internal view returns (bool) {
+        return config.maxPairValueUSDG != 0
+            && _benchmarkUSDG(config, pairLedger, stockPrice, usdgPrice) > config.maxPairValueUSDG;
     }
 
     function _benchmarkUSDG(
@@ -935,7 +895,7 @@ contract RobinhoodBoostedVault is
                 || config.maxCheckpointAge == 0 || config.deprecatedMinDeadlineDelay != 0
                 || config.maxDeadlineDelay == 0 || config.maxDeadlineDelay > 30 minutes
                 || config.reserveFeeBps > 5_000 || config.maxSwapSlippageBps == 0
-                || config.maxSwapSlippageBps > 2_000 || config.withdrawOverUnwindBps > 2_000
+                || config.maxSwapSlippageBps > 500 || config.withdrawOverUnwindBps > 2_000
                 || config.stockDecimals > 36 || config.usdgDecimals > 36
         ) revert InvalidConfiguration();
         if (config.stockDecimals != IERC20Metadata(config.stockToken).decimals()) {

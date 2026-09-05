@@ -149,6 +149,7 @@ contract MockPositionManager {
             ) = abi.decode(params[0], (uint256, uint256, uint128, uint128, bytes));
             hookData;
             Position storage position = _positions[tokenId];
+            require(position.liquidity != 0 || liquidity != 0, "CannotUpdateEmptyPosition");
             uint256 adjustedLiquidity = liquidity > removalHaircut ? liquidity - removalHaircut : 0;
             uint128 removed = uint128(Math.min(adjustedLiquidity, position.liquidity));
             position.liquidity -= removed;
@@ -186,6 +187,7 @@ contract MockUniversalRouter {
     }
 
     MockPermit2 public immutable permit2;
+    uint256 public lastMinHopPriceX36;
 
     constructor(MockPermit2 permit2_) {
         permit2 = permit2_;
@@ -194,6 +196,7 @@ contract MockUniversalRouter {
     function execute(bytes calldata, bytes[] calldata inputs, uint256) external payable {
         (, bytes[] memory params) = abi.decode(inputs[0], (bytes, bytes[]));
         ExactInputSingleParams memory swap = abi.decode(params[0], (ExactInputSingleParams));
+        lastMinHopPriceX36 = swap.minHopPriceX36;
         address tokenIn =
             Currency.unwrap(swap.zeroForOne ? swap.poolKey.currency0 : swap.poolKey.currency1);
         address tokenOut =

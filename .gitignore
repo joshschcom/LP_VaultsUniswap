@@ -5,3 +5,7 @@ out/
 broadcast/
 lib/
 docs/
+
+# Agent guidance, not part of the published repo
+CLAUDE.md
+AGENTS.md

@@ -19,6 +19,7 @@ import {
 } from "@uniswap/universal-router/contracts/interfaces/IUniversalRouter.sol";
 
 import { RobinhoodBoostedVault } from "../../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../../src/libraries/VaultTypes.sol";
 import { UniswapV4PairedAdapter } from "../../src/UniswapV4PairedAdapter.sol";
 import { StockOracleGuard } from "../../src/StockOracleGuard.sol";
 import { StrategyLossReserve } from "../../src/StrategyLossReserve.sol";
@@ -55,7 +56,10 @@ contract RobinhoodNVDAForkTest is Test {
 
     function setUp() external {
         string memory rpcUrl = vm.envOr("ROBINHOOD_RPC_URL", string(""));
-        if (bytes(rpcUrl).length == 0) return;
+        if (bytes(rpcUrl).length == 0) {
+            vm.skip(true);
+            return;
+        }
         vm.createSelectFork(rpcUrl, PINNED_BLOCK);
         forkEnabled = true;
     }
@@ -144,7 +148,8 @@ contract RobinhoodNVDAForkTest is Test {
                 stockFeedDecimals: 8,
                 usdgFeedDecimals: 0,
                 usdgFixedOne: true,
-                enabled: true
+                enabled: true,
+                maxRemovalDeviationBps: 600
             })
         );
 
@@ -194,6 +199,9 @@ contract RobinhoodNVDAForkTest is Test {
         );
         assertGt(finalStock, 0);
         assertGt(finalUsdg, 0);
+        (uint256 stockFees, uint256 usdgFees) = adapter.collectFees(PAIR_ID, block.timestamp + 300);
+        assertEq(stockFees, 0);
+        assertEq(usdgFees, 0);
         adapter.burnEmptyPosition(PAIR_ID, block.timestamp + 300);
         assertEq(adapter.positionState(PAIR_ID).tokenId, 0);
     }
@@ -342,7 +350,7 @@ contract RobinhoodNVDAForkTest is Test {
         system.vault
             .registerPair(
                 PAIR_ID,
-                RobinhoodBoostedVault.PairConfig({
+                PairConfig({
                     stockToken: NVDA,
                     usdg: USDG,
                     stockAccount: stockSide,
@@ -388,7 +396,8 @@ contract RobinhoodNVDAForkTest is Test {
             stockFeedDecimals: 8,
             usdgFeedDecimals: 0,
             usdgFixedOne: true,
-            enabled: true
+            enabled: true,
+            maxRemovalDeviationBps: 600
         });
     }
 

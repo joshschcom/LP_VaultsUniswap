@@ -7,9 +7,6 @@ import { TickMath } from "@uniswap/v4-core/src/libraries/TickMath.sol";
 import { SqrtPriceMath } from "@uniswap/v4-core/src/libraries/SqrtPriceMath.sol";
 
 library VaultMath {
-    uint256 internal constant BPS = 10_000;
-    uint256 internal constant WAD = 1e18;
-
     error InvalidDecimals();
     error InvalidPrice();
     error IdenticalTokens();
@@ -21,7 +18,9 @@ library VaultMath {
     {
         if (decimals > 36) revert InvalidDecimals();
         if (decimals == 18) return amount;
-        if (decimals < 18) return amount * (10 ** (18 - decimals));
+        if (decimals < 18) {
+            return Math.mulDiv(amount, 10 ** (18 - decimals), 1, rounding);
+        }
         return Math.mulDiv(amount, 1, 10 ** (decimals - 18), rounding);
     }
 
@@ -33,7 +32,7 @@ library VaultMath {
         if (decimals > 36) revert InvalidDecimals();
         if (decimals == 18) return amount;
         if (decimals < 18) return Math.mulDiv(amount, 1, 10 ** (18 - decimals), rounding);
-        return amount * (10 ** (decimals - 18));
+        return Math.mulDiv(amount, 10 ** (decimals - 18), 1, rounding);
     }
 
     function valueUSD18(uint256 amount, uint8 decimals, uint256 priceUSD18, Math.Rounding rounding)
@@ -42,7 +41,8 @@ library VaultMath {
         returns (uint256)
     {
         if (priceUSD18 == 0) revert InvalidPrice();
-        return Math.mulDiv(scaleToWad(amount, decimals, rounding), priceUSD18, WAD, rounding);
+        if (decimals > 36) revert InvalidDecimals();
+        return Math.mulDiv(amount, priceUSD18, 10 ** decimals, rounding);
     }
 
     function amountFromValueUSD18(
@@ -52,8 +52,8 @@ library VaultMath {
         Math.Rounding rounding
     ) internal pure returns (uint256) {
         if (priceUSD18 == 0) revert InvalidPrice();
-        uint256 wadAmount = Math.mulDiv(value, WAD, priceUSD18, rounding);
-        return scaleFromWad(wadAmount, decimals, rounding);
+        if (decimals > 36) revert InvalidDecimals();
+        return Math.mulDiv(value, 10 ** decimals, priceUSD18, rounding);
     }
 
     /// @notice Quotes `baseAmount` of base token into quote token using a v4 tick.
