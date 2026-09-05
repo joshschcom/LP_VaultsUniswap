@@ -40,12 +40,17 @@ contract MigrateTimelockGovernance is Script {
         address outgoing = vm.envAddress("OUTGOING_GOVERNOR");
         require(multisig != address(0) && outgoing != address(0), "ZERO_GOVERNOR");
         require(multisig != outgoing, "MULTISIG_IS_OUTGOING_GOVERNOR");
-        // A bootstrap EOA is what this migration exists to remove. Requiring code here stops
-        // the migration silently re-creating the same single-key trust assumption. Note that
-        // a Safe address is chain-specific: one deployed on another chain has no code here,
-        // and granting the roles to it would leave the timelock with a proposer that can
-        // never propose.
-        require(multisig.code.length != 0, "MULTISIG_NOT_CONTRACT");
+        // A bootstrap EOA is what this migration exists to remove, so a contract governor is
+        // the default. ALLOW_EOA_GOVERNOR opts out for an interim step where a plain address
+        // is deliberately acceptable.
+        //
+        // The check is not only about multisig policy. A Safe address is chain-specific: one
+        // deployed on another chain has no code at the same address here, and granting the
+        // roles to an address with no code leaves the timelock with a proposer that can never
+        // propose, freezing every proxy it owns permanently.
+        if (!vm.envOr("ALLOW_EOA_GOVERNOR", false)) {
+            require(multisig.code.length != 0, "MULTISIG_NOT_CONTRACT");
+        }
         _requireRealQuorum(multisig, outgoing);
 
         bytes32 proposer = timelock.PROPOSER_ROLE();
@@ -75,7 +80,8 @@ contract MigrateTimelockGovernance is Script {
     /**
      * @dev A 1-of-1 Safe owned by the outgoing governor is the same key with an extra hop, not
      *      a migration. Where the incoming governor answers the Safe interface, insist on a
-     *      real quorum. Non-Safe governors (a DAO executor, a custom module) do not answer
+     *      real quorum. Non-Safe governors (a DAO executor, a custom module, or a plain
+     *      address admitted by ALLOW_EOA_GOVERNOR) do not answer
      *      these calls and are allowed through, since this cannot verify their internals.
      */
     function _requireRealQuorum(address multisig, address outgoing) internal view {
