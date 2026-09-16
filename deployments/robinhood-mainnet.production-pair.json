@@ -1,0 +1,159 @@
+{
+  "schemaVersion": 1,
+  "status": "LIVE_MARKETS_OPEN_RESERVE_EXERCISED",
+  "verifiedAtUtc": "2026-09-16T18:40:00Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "summary": "Production NVDA/USDG pair registered with two boosted pTokens as its side accounts, allocation enabled, first production LP position open, and both markets opened to depositors at an 80% collateral factor with borrowing enabled.",
+  "source": {
+    "vaultRepository": "joshschcom/LP_VaultsUniswap",
+    "vaultBranch": "robinhood-vault-canary",
+    "marketsRepository": "PeridotFinance/peridot-contracts-2-5",
+    "marketsBranch": "boosted-findings-remediation",
+    "upgradeRecord": "./robinhood-mainnet.oracle-priced-loss-upgrade.json",
+    "canaryRecord": "./robinhood-mainnet.post-upgrade-canary.execution.json"
+  },
+  "lendingBase": {
+    "deployedAtBlock": 54976765,
+    "allTransactionsSucceeded": true,
+    "peridotToken": {
+      "address": "0xbd6f340277235483c881e79205e76bb62a9a548c",
+      "note": "Deployed only to satisfy the PeridottrollerRobinhood constructor. Not distributed, not seeded into any market, not used for rewards."
+    },
+    "priceOracle": "0x266f014d1325774f1190f963df4369e07dda1d33",
+    "unitroller": "0x6148183676e304dbe63a85c350c208da3ceac39c",
+    "controllerImplementation": "0x7c4c7431aa8e5165fb82815dfff1a9fb9871b276",
+    "interestRateModel": "0x0987154fb5676a8ea545aaf41f8ef2492f785d22",
+    "boostedDelegate": "0xf64b9835741c91805e96c9fe4d27704d259d769b",
+    "bootstrapper": "0xdd9f436c6f11cc1ca7e4c5a738256444b660a5bc",
+    "rateModel": {
+      "blocksPerYear": 2628000,
+      "basis": "block.number is L1-derived on this Orbit chain and tracks Ethereum's 12s slot. The ~0.1s L2 block time reported by eth_blockNumber is the wrong clock and would misprice rates by two orders of magnitude.",
+      "baseRatePerYear": "0.02e18",
+      "multiplierPerYear": "0.1e18",
+      "jumpMultiplierPerYear": "1e18",
+      "kink": "0.8e18"
+    },
+    "oraclePolicy": {
+      "nvdaFeed": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
+      "nvdaFlaggedAsStockAsset": true,
+      "stockStalenessSeconds": 259200,
+      "usdgPricing": "pinned to 1e18 via setDirectPrice; no USDG/USD feed exists on this chain, so a depeg would go unpriced"
+    }
+  },
+  "markets": {
+    "bpNVDA": {
+      "address": "0xa155cccb986774ae818b3f10f07d01d1b7a47b26",
+      "underlying": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+      "seedAmount": "20000000000000000",
+      "borrowCap": "4350000000000000000",
+      "collateralFactor": "800000000000000000",
+      "borrowPaused": false,
+      "vaultBufferMantissa": "500000000000000000"
+    },
+    "bpUSDG": {
+      "address": "0x55aed0569c8f0d166d71face57b57c2f2624a563",
+      "underlying": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+      "seedAmount": "4000000",
+      "borrowCap": "1000000000",
+      "collateralFactor": "800000000000000000",
+      "borrowPaused": false,
+      "vaultBufferMantissa": "500000000000000000"
+    },
+    "seedPolicy": "Seed pTokens are held by the deployer and must never be fully redeemed. Their purpose is to keep totalSupply far from zero; at 8-decimal pTokens and the 0.02 initial rate the seed leaves billions of pToken units, which caps mint-rounding loss at fractions of a cent. Redeeming the whole seed returns totalSupply to zero and re-opens first-depositor exposure."
+  },
+  "pair": {
+    "label": "NVDA/USDG",
+    "pairId": "0xe2050352f4346597cc69d2776d99ae60c9440dfc28f9406ce66be0bbe3fb6b06",
+    "stockAccount": "0xa155cccb986774ae818b3f10f07d01d1b7a47b26",
+    "usdgAccount": "0x55aed0569c8f0d166d71face57b57c2f2624a563",
+    "maxPairValueUSDG": "1000000000000000000000",
+    "maxSettlementSwapUSDG": "25000000000000000000",
+    "maxCheckpointAge": 3600,
+    "maxPriceDeviationBps": 300,
+    "maxRemovalDeviationBps": 600,
+    "removalToleranceBps": 400,
+    "allocationPaused": false,
+    "swapsPaused": true,
+    "emergencyMode": false
+  },
+  "livePosition": {
+    "tokenId": 2752736,
+    "liquidity": "137355898984",
+    "stockAmount": "9437979952734870",
+    "usdgAmount": "1999012",
+    "valueUsdApprox": 4.0,
+    "nvdaPriceAtOpen": 211.92,
+    "note": "First production LP position. USDG was the smaller side and capped the match, so ~0.00056 NVDA remains idle in the vault."
+  },
+  "operationalFindings": {
+    "registrationRequiresAnOpenMarket": {
+      "description": "registerPair calls pricesUSD18, so it fails closed on a stale feed. The first execution attempt reverted StaleOracle on Saturday 2026-09-05 with the feed 20.3h old, and stayed blocked through US Labor Day on Monday 2026-09-07 at a 69.7h gap. It executed on Tuesday 2026-09-08.",
+      "consequence": "A pair can only be registered while the underlying market is open. Combined with the timelock delay, the effective latency on any oracle-touching governance action is up to ~70 hours across a holiday weekend.",
+      "mitigation": "Schedule oracle-touching governance against market hours, not only against the timelock delay."
+    },
+    "silentDepositFailureWhileAllocationPaused": {
+      "description": "RobinhoodBoostedDelegate._depositToVault wraps depositForPair in try/catch and emits VaultDepositFailed on revert. depositForPair reverts AllocationPaused while the pair is paused, so calling rebalanceVault() before allocation is enabled succeeds as a transaction while moving nothing.",
+      "consequence": "A misordered operation looks like success. The only tell is vaultAccountedAssets() staying at zero.",
+      "mitigation": "Enable vault allocation before rebalancing any pToken into the vault, and verify vaultAccountedAssets() rather than trusting the receipt. The catch itself is correct: it stops a vault fault freezing the pToken's local cash."
+    },
+    "checkpointBeforeRebalance": {
+      "description": "vault.rebalance calls _requireFresh and reverts CheckpointStale when the last checkpoint is older than maxCheckpointAge. Checkpoint must therefore precede rebalance, not follow it.",
+      "consequence": "Encountered twice: once during the post-upgrade canary and once here, where the checkpoint was 10,423 minutes stale."
+    },
+    "silentOperatorFailureFromGasEstimation": {
+      "description": "syncVault appeared to succeed while moving nothing: it consumed 866,372 gas and emitted VaultWithdrawalFailed. The inner withdrawForSide needs 1,030,433 gas, but eth_estimateGas proposed 914,205 for syncVault. Because _withdrawFromVault catches the failure, an out-of-gas inner call still leaves the outer transaction successful, so the estimator's binary search accepts a limit at which the real work cannot complete. The 63/64 rule then starves the inner call further.",
+      "consequence": "Any operator call routed through this delegate can report success while doing nothing. This is the same shape as the AllocationPaused case: _depositToVault and _withdrawFromVault both catch and emit rather than revert.",
+      "mitigation": "Send operator actions on the delegate with an explicit generous gas limit (2,000,000 worked) and verify resulting state rather than the receipt. Distinguish outcomes by event: VaultWithdrawal (0xc1559fa2) on success versus VaultWithdrawalFailed (0xd91eebab) on a swallowed failure."
+    }
+  },
+  "bufferDecision": {
+    "value": "500000000000000000",
+    "appliedTo": "both markets",
+    "rationale": "The buffer is the fraction kept as local pToken cash; the remainder goes to the vault. Higher buffer means both more liquidity and less LP exposure, trading away yield. Equal buffers on both sides also minimise stranded capital, because rebalance deploys min(stockValue, usdgValue) and any excess on the larger side sits in the vault earning nothing while being harder to withdraw than if it had stayed local.",
+    "rejectedAlternative": "An asymmetric 30/70 split was considered and rejected: the risk argument for bounding the USDG side harder points to a higher buffer, not a lower one, and asymmetric buffers actively increase stranded capital.",
+    "safetyComparison": "At 50% versus 30%, instantly redeemable share during a stale feed window rises from 30% to 50% of the market, and the exchange-rate hit from a 2x NVDA move falls from 4.00% to 2.86%."
+  },
+  "notYetLive": [
+    "Settlement swaps remain paused on the pair.",
+    "Timelock proposer, canceller and executor remain the single deployer EOA."
+  ],
+  "nextRequiredAction": "Migrate governance off the single deployer EOA. All three legs of the loss waterfall now have mainnet coverage.",
+  "marketsOpened": {
+    "atUtc": "2026-09-16T01:00:00Z",
+    "collateralFactor": "800000000000000000",
+    "borrowingEnabled": true,
+    "transactions": {
+      "setCollateralFactorUsdg": "0x057d002d18754968d2d95744344e3cc232c3e6c27d4669555027a5549bc8f310",
+      "setCollateralFactorNvda": "0x8c143894257fc4ea4bfd0d01c256a017718b631057cbb48da2d355a3f0f8dcbc",
+      "unpauseBorrowUsdg": "0x9e5aac2dbd60810b242a64f9c91cc69ad76212bc1cd15f7c7ba17d0a4f5f9455",
+      "unpauseBorrowNvda": "0xbbcb3e9dd5ed383e496417638c0ed362a3d66ee3f5d8d813b0e196c702987a85"
+    }
+  },
+  "knownGaps": {
+    "singleKeyGovernance": {
+      "description": "Timelock proposer, canceller and executor are the single deployer EOA, which also holds KEEPER_ROLE, GUARDIAN_ROLE, controller admin and both pToken admins.",
+      "consequence": "One key can upgrade every proxy, reconfigure every market, and pause or unpause at will.",
+      "recommendation": "Run the two-phase migration in MigrateTimelockGovernance.s.sol against a Safe deployed on 4663 with threshold at least two, before accepting material TVL."
+    }
+  },
+  "reserveCoverExercised": {
+    "atUtc": "2026-09-16T18:38:00Z",
+    "description": "First mainnet execution of the reserve-cover step of the loss waterfall. The reserve was funded with 0.0002 NVDA, then the stock-side pToken withdrew its full claim via syncVault, which unwound the LP entirely and hit a natural NVDA deficit created by NVDA moving from $211.92 to $213.04 and shifting the pool's composition toward USDG.",
+    "reserveFunded": "200000000000000",
+    "reserveDrawn": "16509591820145",
+    "reserveRemaining": "183490408179855",
+    "coverageCapBps": 5000,
+    "note": "The draw matched the 50% coverage cap almost exactly, confirming maxCoverageBps binds as intended. Settlement swaps were paused on the pair, so the reserve was the only cover in play and the leg was exercised in isolation.",
+    "recognizedLossUSDG": "16788842094030",
+    "lossMechanism": "The checkpoint socialised the loss by scaling both principals down; the withdrawal itself reported zero realizedLoss, so cumulativeVaultLoss on both pTokens stayed at zero. Both exchange rates ended marginally higher because the reserve topped the stock side back up after the write-down.",
+    "postState": {
+      "positionLiquidity": "0",
+      "positionTokenId": 2752736,
+      "stockPrincipal": "16631839952566",
+      "usdgPrincipal": "2000035",
+      "bpNvdaExchangeRate": "200000896690404640000000000",
+      "bpUsdgExchangeRate": "200001750000000"
+    }
+  }
+}

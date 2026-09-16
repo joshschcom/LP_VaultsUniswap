@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "status": "PASS",
+  "chainId": 4663,
+  "blockNumber": 20546961,
+  "blockHash": "0x72b5ac29a71d4b231f7f80f619fb9794de694676f801e91d438757bd318be36b",
+  "blockTimestampUtc": "2026-07-27T07:18:41Z",
+  "sourceCommit": "0baf5b65ea1879210c75a5f0b4c7ae2fde6f4294",
+  "manifest": {
+    "file": "./robinhood-mainnet.nvda.canary.json",
+    "sha256": "0x735aef4b47845e7e7835595818560db5af1f3d305454d820fabce97e2dd5f0ca"
+  },
+  "registrySnapshot": {
+    "file": "./snapshots/robinhood-nvda-2026-07-27.json",
+    "sha256": "0xf18b88d98076b3e7e41369c656df42a0283cbfbc22e845571bb3bdd0f668c224"
+  },
+  "observed": {
+    "stockSymbol": "NVDA",
+    "stockDecimals": 18,
+    "usdgDecimals": 6,
+    "uiMultiplier": "1000000000000000000",
+    "feedDescription": "RHNVDA / USD",
+    "feedDecimals": 8,
+    "feedRoundId": "18446744073709552079",
+    "feedAnswer": "20886500000",
+    "stockPriceUSD18": "208865000000000000000",
+    "feedStartedAtUtc": "2026-07-27T02:00:43Z",
+    "feedUpdatedAtUtc": "2026-07-27T02:00:55Z",
+    "feedAgeSeconds": 19066,
+    "poolId": "0x3bb34a44f1b2b5f32c034c38a53065a521a47b199700fa9bd19d60985ff24bf1",
+    "sqrtPriceX96": "5480260633837685755966371702065591",
+    "tick": 222897,
+    "liquidity": "1802076139928397149",
+    "protocolFee": 0,
+    "lpFee": 3000
+  },
+  "validatedPolicy": {
+    "minimumStockPriceUSD18": "100000000000000000000",
+    "maximumStockPriceUSD18": "400000000000000000000",
+    "maximumFeedAgeSeconds": 43200,
+    "maximumPoolDeviationBps": 300,
+    "removalToleranceBps": 400,
+    "sequencerWaiverApproved": true
+  },
+  "checks": {
+    "canonicalContractsHaveCode": true,
+    "tokenMetadataMatches": true,
+    "noPendingMultiplierChange": true,
+    "poolIdMatches": true,
+    "poolInitialized": true,
+    "poolManagerAndStateViewAgree": true,
+    "feedPositiveFreshAndPlausible": true,
+    "removalToleranceCoversDeviationAndOperationalBuffer": true
+  }
+}

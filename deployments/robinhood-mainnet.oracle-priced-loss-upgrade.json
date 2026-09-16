@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "status": "UPGRADED_VERIFIED_CANARY_ENABLED_EMPTY",
+  "verifiedAtUtc": "2026-09-03T00:12:10Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "source": {
+    "repository": "joshschcom/LP_VaultsUniswap",
+    "branch": "robinhood-vault-canary",
+    "commitSha": "c43b00e",
+    "changeCommits": [
+      "10e04a68a36763879e835f40e3b669c1aa961057",
+      "966646863d9d4eaec6bbdb92790184d2be2df49a",
+      "7d2c20002f2f7c8c40e63c4cb78b7e115c423685",
+      "40f30caaec0e0acfa7ad2a3593cd7cc8c4b76b36",
+      "28104e5bf4d7d7a36da95d7ceb67f547d0ef2a94",
+      "91225bb1800f0cb537be403e4065c2b48de5d3cd",
+      "b96914e0ff562bbaf64ca94acfbd4eef0643bcdb"
+    ],
+    "almanaxScanIds": [
+      "06ad809f-db1c-4d1a-96a7-f3805db58499",
+      "6734200d-2f7d-4954-98fa-aad8cab2e87b",
+      "397694f0-5e67-4c54-9668-482c311c6503",
+      "ebfbcb29-a99e-4ac6-86b1-79680943e4e4",
+      "76630d52-fb9d-4876-9e5a-6b6dd8c6f0db"
+    ],
+    "almanaxActiveFindings": 0,
+    "consumerCommit": {
+      "repository": "PeridotFinance/peridot-contracts-2-5",
+      "commitSha": "895dc6f0c101597277c571d43f040ca6f11bfd6e",
+      "almanaxScanId": "5e251cec-ab33-40e6-b756-5b1b8822050a",
+      "almanaxActiveFindings": 0
+    }
+  },
+  "scope": [
+    "withdrawableAssets reports only idle reachable in the current block; liquidAssets reports custody",
+    "settlement deficit waterfall extracted into the linked SettlementLib to regain EIP-170 headroom",
+    "loss accounting values the LP position at the oracle-derived reference price, not the pool price",
+    "pool deviation bound split: maxPriceDeviationBps gates allocation, maxRemovalDeviationBps gates exits"
+  ],
+  "deployer": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposerAndExecutor": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "library": {
+    "name": "SettlementLib",
+    "address": "0x813AbFeC0DE50f8674798CbaB72Ed7b5D8CcB9cB",
+    "runtimeCodeHash": "0x2db5ef48328c828e38fe4e523a7191c4321f0eb501641c65380313097826724d",
+    "runtimeSizeBytes": 4730,
+    "linkReference": "src/libraries/SettlementLib.sol:SettlementLib",
+    "deployment": {
+      "transactionHash": "0x8a2e78ab2b4cfe366c0ed272644fd55ff6ce2f6114b6374ea3fc8715d29d2d46",
+      "blockNumber": 52598108
+    },
+    "note": "The vault implementation cannot be reproduced without linking this exact address."
+  },
+  "replacementImplementations": {
+    "adapter": {
+      "proxy": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3",
+      "proxyAdmin": "0x5a345842E3304EE97360de1C61699BA0Efea906b",
+      "implementation": "0xc4db160750638a92578c0c657ad6ab7c2a1399f9",
+      "runtimeCodeHash": "0x2cde2f75927cccae3835623a08892db3a93e035a2bd805589dfde1af256f8dcd",
+      "runtimeSizeBytes": 17002,
+      "deployment": {
+        "transactionHash": "0xe2e5d5f203bc4cc8723eade0ff210aa1257f4426ce3851a89608fa552df660d6",
+        "blockNumber": 52598109
+      }
+    },
+    "oracle": {
+      "proxy": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+      "proxyAdmin": "0x7300F5AE32e9EE8De9221179aE4234A4Aef53aD1",
+      "implementation": "0x027098b6fe575b39958519da0a970cb2116d3b0e",
+      "runtimeCodeHash": "0x1e66922d562ef1da9b41d783f04ae4af517d4ae6dbbf37d28badd814e0ec4bb4",
+      "runtimeSizeBytes": 10556,
+      "deployment": {
+        "transactionHash": "0x069ae0b9ac443198a7805f8203184f1093b80e32a0622b2ed4710a319fc5f29c",
+        "blockNumber": 52598109
+      }
+    },
+    "vault": {
+      "proxy": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+      "proxyAdmin": "0xad2165E6f3b8146D17815968470eDb8B9a0A4ab7",
+      "implementation": "0x21c7e1c2caded480fa373c5c9b3f51492b2d50ac",
+      "runtimeCodeHash": "0x13491ca5a62abb6bde4ff09973465087f23e12a18d6923d8cba62ae4ba319049",
+      "runtimeSizeBytes": 22261,
+      "eip170MarginBytes": 2315,
+      "linkedLibrary": "0x813AbFeC0DE50f8674798CbaB72Ed7b5D8CcB9cB",
+      "deployment": {
+        "transactionHash": "0x0905ae035bce9a8a06cb9986df073ab4a4073544273e0971016929cd42d3d85c",
+        "blockNumber": 52598109
+      }
+    }
+  },
+  "timelockOperations": [
+    {
+      "order": 1,
+      "description": "upgrade adapter, adds positionStateAt",
+      "operationId": "0xb16dea81751dce8548f42a6613125f8f6671e23d770138e39908a4d94f9fae97",
+      "target": "0x5a345842E3304EE97360de1C61699BA0Efea906b",
+      "salt": "keccak256(\"rh-upgrade-2026-09/1-adapter\")",
+      "predecessor": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "scheduled": { "transactionHash": "0xb8fa063510fcfbc17542489d704d60ebb6e1d2d36459612f7f5fa7072fd8fd57", "blockNumber": 52614435 },
+      "executed": { "transactionHash": "0x9da40990e60e25f4574a45a8249cd351744ee9ca2a70352f2d0ea0a52853d91d", "blockNumber": 53311286 }
+    },
+    {
+      "order": 2,
+      "description": "upgrade oracle guard, adds validateRemovalPrice",
+      "operationId": "0xe6f3dde40aa7950816051472857617b31023aa003e473662f29f5d9f540b3901",
+      "target": "0x7300F5AE32e9EE8De9221179aE4234A4Aef53aD1",
+      "salt": "keccak256(\"rh-upgrade-2026-09/2-oracle\")",
+      "predecessor": "0xb16dea81751dce8548f42a6613125f8f6671e23d770138e39908a4d94f9fae97",
+      "scheduled": { "transactionHash": "0xe61fe11089e280532e8e299ba76f891a57ae5bfb37f93d0e157ef7c61da3dd62", "blockNumber": 52614837 },
+      "executed": { "transactionHash": "0xd1e500b41adcb728cc6b26fc4649a3b6a4bfc20bedd412685b518c9970ade76d", "blockNumber": 53311478 }
+    },
+    {
+      "order": 3,
+      "description": "upgrade vault, linked library and oracle-priced loss",
+      "operationId": "0x1a7edf1325e40af16a25ff15567205d2624473654965a0090ea74e4ec1026ae4",
+      "target": "0xad2165E6f3b8146D17815968470eDb8B9a0A4ab7",
+      "salt": "keccak256(\"rh-upgrade-2026-09/3-vault\")",
+      "predecessor": "0xe6f3dde40aa7950816051472857617b31023aa003e473662f29f5d9f540b3901",
+      "scheduled": { "transactionHash": "0x6fc95bf8c881e930d9afc7f7bbf8a0d5311803d76e60449e2dd73ec8d3ae51bf", "blockNumber": 52615249 },
+      "executed": { "transactionHash": "0x90723ac628400889b3a6604c4ddb07211d7d9c605059be36b0ae8fdaa81fc8fa", "blockNumber": 53311731 }
+    },
+    {
+      "order": 4,
+      "description": "set maxRemovalDeviationBps to 600, allocation bound unchanged at 300",
+      "operationId": "0x53004b3bfd4b810902a2d426239e9ff8a5467a7f58963a4256ce7d5b09fd2a9b",
+      "target": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+      "salt": "keccak256(\"rh-upgrade-2026-09/4-removal-bound\")",
+      "predecessor": "0x1a7edf1325e40af16a25ff15567205d2624473654965a0090ea74e4ec1026ae4",
+      "scheduled": { "transactionHash": "0x5afb7160008672c3511f2bc55c6ec25777d29ff1a70c0864fbd35929eba97b88", "blockNumber": 52615803 },
+      "executed": { "transactionHash": "0x27056482970446e2aa8fb89257dfb25594a30916f86c38033d1841199ff0cffd", "blockNumber": 53311973 }
+    }
+  ],
+  "postUpgradeVerification": {
+    "verificationBlockNumber": 53313911,
+    "verificationBlockHash": "0xef359298d74b7e0dfd97407ca43f8e216228390ea6beb8c342f2fdb1fdca50c9",
+    "verificationTimestamp": 1788427930,
+    "allTimelockOperationsDone": true,
+    "proxyImplementationsMatchDeployed": true,
+    "proxyAdminsOwnedByTimelock": true,
+    "vaultLinkedLibraryPresentInRuntime": true,
+    "storageLayoutUnchanged": "forge inspect storageLayout: top-level slots and PairConfig/PairLedger field layouts byte-identical to the pre-change build",
+    "roles": {
+      "defaultAdminOnTimelock": true,
+      "configRoleOnTimelock": true,
+      "configRoleOnDeployerEoa": false,
+      "keeperOnDeployerEoa": true,
+      "guardianOnDeployerEoa": true
+    },
+    "dependencyWiringUnchanged": {
+      "oracleGuard": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+      "liquidityAdapter": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3",
+      "lossReserve": "0x806b182B050f7EcF908758dD6bBF91DB8B2212aF"
+    },
+    "deviationBounds": { "maxPriceDeviationBps": 300, "maxRemovalDeviationBps": 600 },
+    "pairState": {
+      "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+      "stockPrincipal": "0",
+      "usdgPrincipal": "0",
+      "stockIdle": "0",
+      "usdgIdle": "0",
+      "cumulativeLossUSDG": "7111415377233673",
+      "withdrawableUsdg": "0",
+      "allocationPaused": false,
+      "swapsPaused": false,
+      "emergencyMode": false,
+      "note": "Carried forward from the CANARY_ENABLED_EMPTY_RECOVERY_READY state staged 2026-08-11. The pair is empty and only the configured side accounts can deposit."
+    }
+  },
+  "testing": {
+    "unitTests": 86,
+    "pinnedForkTests": 7,
+    "forkPinnedBlock": 17091638,
+    "formatCheck": "clean",
+    "contractSizeCheck": "vault 22261 bytes, 2315 below EIP-170"
+  },
+  "nextRequiredAction": "Run the post-upgrade canary, including the guardian emergency removal path that has never been exercised on-chain, then drain and re-pause the pair."
+}

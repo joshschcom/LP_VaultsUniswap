@@ -1,0 +1,33 @@
+{
+  "source": "https://api.robinhood.com/rhj/assets",
+  "retrievedAt": "2026-07-27",
+  "asset": {
+    "id": "0x00000000000000000000000000000000915f477416294f5099a5e0e09f327ce5",
+    "tokenSymbol": "NVDA",
+    "tokenName": "NVIDIA • Robinhood Token",
+    "deployments": [
+      {
+        "contractAddress": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+        "chainId": 4663
+      }
+    ],
+    "currentMultiplier": "1.000000000000000000",
+    "pendingMultiplier": "",
+    "status": "ASSET_STATUS_ACTIVE",
+    "logoUrl": "https://cdn.robinhood.com/ncw_assets/logos/0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec.png",
+    "tradingCapabilities": {
+      "market": {
+        "whole": "TRADING_STATUS_TRADABLE",
+        "fractional": "TRADING_STATUS_TRADABLE"
+      },
+      "extended": {
+        "whole": "TRADING_STATUS_TRADABLE",
+        "fractional": "TRADING_STATUS_TRADABLE"
+      },
+      "overnight": {
+        "whole": "TRADING_STATUS_TRADABLE",
+        "fractional": "TRADING_STATUS_TRADABLE"
+      }
+    }
+  }
+}

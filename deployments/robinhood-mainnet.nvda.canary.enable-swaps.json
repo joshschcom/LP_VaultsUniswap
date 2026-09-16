@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "status": "REVIEWED_PENDING_TIMELOCK",
+  "preparedAtUtc": "2026-07-27T14:02:03Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "source": {
+    "repositoryCommit": "1b90d9eb6e131b2e2dfbbd11db7aa02acc23a8ee",
+    "configurationRecord": "./robinhood-mainnet.nvda.canary.execution.json",
+    "configurationRecordSha256": "0xc7753219b7b4dd2dea77d4bbadef7cb071231f3775dbc5840c59d79d6dd4f655",
+    "allocationOperationRecord": "./robinhood-mainnet.nvda.canary.enable-allocation.json",
+    "allocationOperationRecordSha256": "0xda76e4df043e9455f9cdafcf140fe3bd62627bd0e34ff0de5adb3208fe72e5f9"
+  },
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposerAndExecutor": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "pair": {
+    "label": "NVDA/USDG/CANARY",
+    "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+    "vault": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+    "stockToken": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168"
+  },
+  "boundedSettlementPolicy": {
+    "maxSettlementSwapUSDG18": "10000000000000000000",
+    "maxSettlementSwapDisplay": "10 USDG",
+    "maxSwapSlippageBps": 100,
+    "maxPriceDeviationBps": 300,
+    "allocationCapUSDG18": "100000000000000000000",
+    "currentCombinedPrincipalIsBelowCap": true
+  },
+  "preconditions": {
+    "blockNumber": 20788027,
+    "blockHash": "0x984e9c1fc4f9a05b2f8d8f00a68d06254e057cd2e1d026bb1616cb8511f842e9",
+    "blockTimestampUtc": "2026-07-27T14:02:03Z",
+    "operationState": 0,
+    "pairExists": true,
+    "allocationPaused": false,
+    "swapsPaused": true,
+    "emergencyMode": false,
+    "stockPrincipal": "23998635619437974",
+    "usdgPrincipal": "4999590",
+    "stockIdle": "61692053897815",
+    "usdgIdle": "10678",
+    "positionLiquidity": "345599348921",
+    "stockReserve": "149990220550",
+    "usdgReserve": "0",
+    "lastCheckpointTransaction": "0x9eab4846c0b86cb08d5d5622412a0016e0adee14352249f55a677e5c63c6148e",
+    "oracleStockInUsdgUSD18": "201997100000000000000",
+    "poolSqrtPriceX96": "5550965527835567070390174094427552",
+    "poolTick": 223154,
+    "poolLiquidity": "1130270213124103529",
+    "oraclePoolValidationPassed": true
+  },
+  "operation": {
+    "name": "enable-bounded-canary-settlement-swaps",
+    "target": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+    "value": "0",
+    "calldata": "0x07e1385e536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "decodedCall": "setPairPause(0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee, false, false, false)",
+    "predecessor": "0x0000000000000000000000000000000000000000000000000000000000000000",
+    "salt": "0xfc00782925b61285d07b6a4f058360d54aa954ab16fabe70819d6bb24dbc7850",
+    "saltPreimage": "NVDA/USDG/CANARY:enable-swaps:v1:1b90d9eb6e131b2e2dfbbd11db7aa02acc23a8ee",
+    "operationId": "0x296793b4ccab45144bc81fd277fd4584b8b4ce1796596af5f852c8da088303c1",
+    "delaySeconds": 3600
+  },
+  "expectedPostState": {
+    "allocationPaused": false,
+    "swapsPaused": false,
+    "emergencyMode": false,
+    "principalsAndPositionUnchangedByGovernanceCall": true,
+    "settlementSwapsRemainOracleGuarded": true,
+    "settlementSwapsRemainCappedAtUSDG18": "10000000000000000000",
+    "settlementSwapsRemainLimitedToSlippageBps": 100
+  },
+  "executionRequirements": [
+    "Verify the detached SHA-256 digest before scheduling and execution.",
+    "Require operation state 0 before scheduling and state 2 before execution.",
+    "Run the live fail-closed preflight immediately before execution.",
+    "Execute only the exact setPairPause operation recorded here.",
+    "Verify allocation remains enabled, swaps become enabled, and emergency mode remains false.",
+    "Use only the existing capped canary principal for settlement-swap withdrawal tests.",
+    "Simulate every withdrawal immediately before broadcasting it.",
+    "Verify vault, adapter, Permit2, and router allowance amounts return to zero.",
+    "Re-pause settlement swaps and allocation through the timelock after the canary is drained."
+  ]
+}

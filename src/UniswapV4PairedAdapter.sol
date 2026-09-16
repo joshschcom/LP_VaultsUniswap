@@ -41,6 +41,8 @@ contract UniswapV4PairedAdapter is
     using StateLibrary for IPoolManager;
 
     uint256 internal constant BPS = 10_000;
+    uint256 internal constant PRICE_X36 = 1e36;
+    uint256 internal constant MAX_REMOVAL_TOLERANCE_BPS = 2_000;
 
     struct PairState {
         address stockToken;
@@ -142,7 +144,8 @@ contract UniswapV4PairedAdapter is
         if (
             pairId == bytes32(0) || _pairs[pairId].registered || params.stockToken == address(0)
                 || params.usdg == address(0) || params.stockToken == params.usdg
-                || params.expectedPoolId == bytes32(0) || params.removalToleranceBps > BPS
+                || params.expectedPoolId == bytes32(0)
+                || params.removalToleranceBps > MAX_REMOVAL_TOLERANCE_BPS
                 || address(params.poolKey.hooks) != address(0)
         ) revert InvalidConfiguration();
 
@@ -173,14 +176,47 @@ contract UniswapV4PairedAdapter is
         return pair.key;
     }
 
+    /// @notice Position composition at the pool's live price.
+    /// @dev Market view. The amounts move with the pool, so a manipulated pool moves them
+    ///      too. Accounting that must resist manipulation uses `positionStateAt` with the
+    ///      oracle-derived reference price instead.
     function positionState(bytes32 pairId) public view returns (PositionState memory state) {
         PairState storage pair = _pair(pairId);
-        state.tokenId = pair.tokenId;
-        state.liquidity = pair.liquidity;
-        if (pair.liquidity == 0) return state;
-
+        if (pair.liquidity == 0) {
+            state.tokenId = pair.tokenId;
+            return state;
+        }
         (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(PoolId.wrap(pair.poolId));
         if (sqrtPriceX96 == 0) revert PoolUninitialized();
+        return _positionStateAt(pair, sqrtPriceX96);
+    }
+
+    /// @notice Position composition valued at an explicit price rather than the pool's.
+    /// @dev Called with the oracle-derived `referenceSqrtPriceX96` so loss accounting cannot
+    ///      be moved by pushing the pool. Reverts on a reference price outside the tick range.
+    function positionStateAt(bytes32 pairId, uint160 sqrtPriceX96)
+        external
+        view
+        returns (PositionState memory state)
+    {
+        if (sqrtPriceX96 < TickMath.MIN_SQRT_PRICE || sqrtPriceX96 >= TickMath.MAX_SQRT_PRICE) {
+            revert InvalidReferencePrice();
+        }
+        PairState storage pair = _pair(pairId);
+        if (pair.liquidity == 0) {
+            state.tokenId = pair.tokenId;
+            return state;
+        }
+        return _positionStateAt(pair, sqrtPriceX96);
+    }
+
+    function _positionStateAt(PairState storage pair, uint160 sqrtPriceX96)
+        private
+        view
+        returns (PositionState memory state)
+    {
+        state.tokenId = pair.tokenId;
+        state.liquidity = pair.liquidity;
         uint160 sqrtLower =
             TickMath.getSqrtPriceAtTick(TickMath.minUsableTick(pair.key.tickSpacing));
         uint160 sqrtUpper =
@@ -298,7 +334,7 @@ contract UniswapV4PairedAdapter is
     {
         _checkDeadline(deadline);
         PairState storage pair = _pair(pairId);
-        if (pair.tokenId == 0) return (0, 0);
+        if (pair.tokenId == 0 || pair.liquidity == 0) return (0, 0);
         (stockFees, usdgFees) = _decreaseAndTransfer(pair, 0, 0, 0, deadline);
         emit FeesCollected(pairId, stockFees, usdgFees);
     }
@@ -316,6 +352,8 @@ contract UniswapV4PairedAdapter is
         if (amountIn == 0 || minAmountOut == 0) revert InvalidConfiguration();
         uint128 amountIn128 = amountIn.toUint128();
         uint128 minAmountOut128 = minAmountOut.toUint128();
+        uint256 minHopPriceX36 = Math.mulDiv(minAmountOut, PRICE_X36, amountIn);
+        if (minHopPriceX36 == 0) revert InvalidConfiguration();
 
         address tokenOut = tokenIn == pair.stockToken ? pair.usdg : pair.stockToken;
         uint256 inputStart = IERC20(tokenIn).balanceOf(address(this));
@@ -336,7 +374,9 @@ contract UniswapV4PairedAdapter is
                 zeroForOne: zeroForOne,
                 amountIn: amountIn128,
                 amountOutMinimum: minAmountOut128,
-                minHopPriceX36: 0,
+                // `minAmountOut` is derived by the vault from fresh oracle prices.
+                // Enforce that same raw output/input floor inside the swap hop.
+                minHopPriceX36: minHopPriceX36,
                 hookData: bytes("")
             })
         );
@@ -560,7 +600,7 @@ contract UniswapV4PairedAdapter is
     }
 
     function _checkDeadline(uint256 deadline) internal view {
-        if (deadline < block.timestamp) revert InvalidDeadline();
+        if (deadline < block.timestamp || deadline > type(uint48).max) revert InvalidDeadline();
     }
 
     uint256[42] private __gap;

@@ -126,4 +126,36 @@ contract StrategyLossReserveTest is Test {
         assertEq(reserve.accountedBalance(address(usdg)), 1_000e6);
         assertEq(usdg.balanceOf(address(this)), 0);
     }
+
+    function testFeeOnTransferDepositIsRejectedWithoutAccountingDrift() external {
+        usdg.mint(funder, 100e6);
+        usdg.setTransferFee(100, funder, address(reserve));
+
+        vm.prank(funder);
+        vm.expectRevert(StrategyLossReserve.BalanceDeltaMismatch.selector);
+        reserve.deposit(PAIR_ID, address(usdg), 100e6);
+
+        assertEq(reserve.available(PAIR_ID, address(usdg)), 1_000e6);
+        assertEq(reserve.accountedBalance(address(usdg)), 1_000e6);
+    }
+
+    function testDailyUsageRoundsCoverageValueUp() external {
+        reserve.configurePair(
+            PAIR_ID,
+            StrategyLossReserve.ReserveConfig({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                maxUsePerTxUSDG: 1,
+                dailyCapUSDG: 1,
+                maxCoverageBps: 10_000,
+                paused: false,
+                exists: true
+            })
+        );
+
+        assertEq(reserve.cover(PAIR_ID, address(usdg), 3, 2, 2), 1);
+        (, uint192 usedUSDG) = reserve.dailyUsage(PAIR_ID);
+        assertEq(usedUSDG, 1);
+        assertEq(reserve.cover(PAIR_ID, address(usdg), 3, 2, 2), 0);
+    }
 }

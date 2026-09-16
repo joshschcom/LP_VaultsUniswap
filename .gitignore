@@ -5,3 +5,13 @@ out/
 broadcast/
 lib/
 docs/
+
+# Agent guidance, not part of the published repo
+CLAUDE.md
+AGENTS.md
+
+# Testnet-only deployer key, never for mainnet value
+.testnet-deployer
+.prod-pair-payloads.env
+.delegate-payloads.env
+.cancel-wrong-ops.env

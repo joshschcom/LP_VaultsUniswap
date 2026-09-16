@@ -2,28 +2,40 @@
 pragma solidity ^0.8.24;
 
 import { Script } from "forge-std/Script.sol";
+import { console2 } from "forge-std/console2.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { IHooks } from "@uniswap/v4-core/src/interfaces/IHooks.sol";
 import { PoolKey } from "@uniswap/v4-core/src/types/PoolKey.sol";
 import { Currency } from "@uniswap/v4-core/src/types/Currency.sol";
 
 import { RobinhoodBoostedVault } from "../src/RobinhoodBoostedVault.sol";
+import { PairConfig } from "../src/libraries/VaultTypes.sol";
 import { StockOracleGuard } from "../src/StockOracleGuard.sol";
 import { StrategyLossReserve } from "../src/StrategyLossReserve.sol";
 import { IUniswapV4PairedAdapter } from "../src/interfaces/IUniswapV4PairedAdapter.sol";
 import { IAggregatorV3 } from "../src/interfaces/IAggregatorV3.sol";
 
-/// @notice Configures the verified NVDA canary. When governance is a contract timelock,
-/// use the three encoded calls produced by this script as proposal payloads rather than
-/// broadcasting them directly from an EOA.
+interface IUnderlyingToken {
+    function underlying() external view returns (address);
+
+    function vaultPaused() external view returns (bool);
+}
+
+/// @notice Builds or directly executes the four calls that configure an NVDA pair.
+/// @dev Proposal-payload output is the default. Direct EOA broadcasting requires the
+///      explicit DIRECT_CONFIG_BROADCAST=true opt-in.
 contract ConfigureNvdaPair is Script {
-    bytes32 public constant PAIR_ID = keccak256("NVDA/USDG");
+    bytes32 public constant CANARY_PAIR_ID = keccak256("NVDA/USDG/CANARY");
+    bytes32 public constant PRODUCTION_PAIR_ID = keccak256("NVDA/USDG");
     bytes32 public constant NVDA_POOL_ID =
         0x3bb34a44f1b2b5f32c034c38a53065a521a47b199700fa9bd19d60985ff24bf1;
 
     function run() external {
         require(block.chainid == 4663, "WRONG_CHAIN");
-        uint256 governanceKey = vm.envUint("GOVERNANCE_PRIVATE_KEY");
+        string memory pairLabel = vm.envString("PAIR_LABEL");
+        require(bytes(pairLabel).length != 0, "EMPTY_PAIR_LABEL");
+        bytes32 pairId = keccak256(bytes(pairLabel));
+        require(pairId == CANARY_PAIR_ID || pairId == PRODUCTION_PAIR_ID, "UNAPPROVED_PAIR_LABEL");
         RobinhoodBoostedVault vault = RobinhoodBoostedVault(vm.envAddress("VAULT_PROXY"));
         StockOracleGuard oracle = StockOracleGuard(vm.envAddress("ORACLE_PROXY"));
         StrategyLossReserve reserve = StrategyLossReserve(vm.envAddress("RESERVE_PROXY"));
@@ -38,13 +50,78 @@ contract ConfigureNvdaPair is Script {
             tickSpacing: 60,
             hooks: IHooks(address(0))
         });
+        StockOracleGuard.FeedConfig memory oracleConfig = _oracleConfig(stock, usdg);
+        StrategyLossReserve.ReserveConfig memory reserveConfig = _reserveConfig(stock, usdg);
+        PairConfig memory vaultConfig = _vaultConfig(stock, usdg);
+        IUniswapV4PairedAdapter.RegisterPairParams memory adapterConfig =
+            _adapterConfig(stock, usdg, key);
+        _validateRollout(pairId, vault, vaultConfig);
+        uint256 aggregateCap = vm.envOr("AGGREGATE_USDG_DEPOSIT_CAP", uint256(0));
 
-        vm.startBroadcast(governanceKey);
-        oracle.configurePair(PAIR_ID, _oracleConfig(stock, usdg));
-        reserve.configurePair(PAIR_ID, _reserveConfig(stock, usdg));
-        vault.setAggregateUsdgDepositCap(usdg, vm.envOr("AGGREGATE_USDG_DEPOSIT_CAP", uint256(0)));
-        vault.registerPair(PAIR_ID, _vaultConfig(stock, usdg), _adapterConfig(stock, usdg, key));
+        if (!vm.envOr("DIRECT_CONFIG_BROADCAST", false)) {
+            _printPayload(
+                "configure oracle",
+                address(oracle),
+                abi.encodeCall(StockOracleGuard.configurePair, (pairId, oracleConfig))
+            );
+            _printPayload(
+                "configure reserve",
+                address(reserve),
+                abi.encodeCall(StrategyLossReserve.configurePair, (pairId, reserveConfig))
+            );
+            _printPayload(
+                "set aggregate USDG cap",
+                address(vault),
+                abi.encodeCall(
+                    RobinhoodBoostedVault.setAggregateUsdgDepositCap, (usdg, aggregateCap)
+                )
+            );
+            _printPayload(
+                "register vault pair",
+                address(vault),
+                abi.encodeCall(
+                    RobinhoodBoostedVault.registerPair, (pairId, vaultConfig, adapterConfig)
+                )
+            );
+            return;
+        }
+
+        address governanceActor = vm.envAddress("GOVERNANCE_ACTOR");
+        require(governanceActor != address(0), "ZERO_GOVERNANCE_ACTOR");
+        vm.startBroadcast(governanceActor);
+        oracle.configurePair(pairId, oracleConfig);
+        reserve.configurePair(pairId, reserveConfig);
+        vault.setAggregateUsdgDepositCap(usdg, aggregateCap);
+        vault.registerPair(pairId, vaultConfig, adapterConfig);
         vm.stopBroadcast();
+    }
+
+    function _printPayload(string memory label, address target, bytes memory data) internal pure {
+        console2.log(label);
+        console2.log("target", target);
+        console2.log("value", uint256(0));
+        console2.log("calldata");
+        console2.logBytes(data);
+    }
+
+    function _validateRollout(bytes32 pairId, RobinhoodBoostedVault vault, PairConfig memory config)
+        internal
+        view
+    {
+        require(address(vault).code.length != 0, "VAULT_NOT_CONTRACT");
+        if (pairId == CANARY_PAIR_ID) {
+            require(config.stockAccount.code.length == 0, "CANARY_STOCK_ACCOUNT_NOT_EOA");
+            require(config.usdgAccount.code.length == 0, "CANARY_USDG_ACCOUNT_NOT_EOA");
+            require(config.maxPairValueUSDG != 0, "CANARY_PAIR_CAP_REQUIRED");
+            require(vm.envUint("AGGREGATE_USDG_DEPOSIT_CAP") != 0, "CANARY_AGGREGATE_CAP_REQUIRED");
+            return;
+        }
+
+        require(config.usdgAccount.code.length != 0, "PRODUCTION_PUSDG_NOT_CONTRACT");
+        require(
+            IUnderlyingToken(config.usdgAccount).underlying() == config.usdg, "PUSDG_UNDERLYING"
+        );
+        require(IUnderlyingToken(config.usdgAccount).vaultPaused(), "PUSDG_MUST_START_PAUSED");
     }
 
     function _oracleConfig(address stock, address usdg)
@@ -61,6 +138,10 @@ contract ConfigureNvdaPair is Script {
         config.maxStaleness = uint64(vm.envUint("TRADING_SESSION_MAX_STALENESS"));
         config.sequencerGracePeriod = uint64(vm.envOr("SEQUENCER_GRACE_PERIOD", uint256(3600)));
         config.maxPriceDeviationBps = uint16(vm.envOr("MAX_PRICE_DEVIATION_BPS", uint256(300)));
+        // Exits tolerate a wider pool/oracle gap than allocation: a deviation d moves a
+        // full-range position's amounts by only about d/2, so 600 bps is covered by the
+        // 400 bps removal tolerance with the 100 bps operational buffer to spare.
+        config.maxRemovalDeviationBps = uint16(vm.envOr("MAX_REMOVAL_DEVIATION_BPS", uint256(600)));
         config.stockDecimals = IERC20Metadata(stock).decimals();
         config.usdgDecimals = IERC20Metadata(usdg).decimals();
         config.stockFeedDecimals = config.stockFeed.decimals();
@@ -86,7 +167,7 @@ contract ConfigureNvdaPair is Script {
     function _vaultConfig(address stock, address usdg)
         internal
         view
-        returns (RobinhoodBoostedVault.PairConfig memory config)
+        returns (PairConfig memory config)
     {
         config.stockToken = stock;
         config.usdg = usdg;

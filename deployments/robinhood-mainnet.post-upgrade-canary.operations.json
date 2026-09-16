@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "status": "CANARY_ENABLED_EMPTY_RECOVERY_READY",
+  "preparedAtUtc": "2026-08-11T09:05:06Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "source": {
+    "repository": "joshschcom/LP_VaultsUniswap",
+    "branch": "robinhood-vault-canary",
+    "canaryRunnerCommitSha": "1d7492a3df0fdab547d0ee2b7c81d438984db3c5",
+    "configurationRecord": "./robinhood-mainnet.nvda.canary.json",
+    "configurationRecordSha256": "735aef4b47845e7e7835595818560db5af1f3d305454d820fabce97e2dd5f0ca",
+    "adapterUpgradeRecord": "./robinhood-mainnet.adapter-empty-position-upgrade.json",
+    "adapterUpgradeRecordSha256": "8ac0e5b6dead37f2f036a3898543d83ee058a91f34d29112574860b4c0e44fca",
+    "vaultUpgradeRecord": "./robinhood-mainnet.vault-shared-loss-upgrade.json",
+    "vaultUpgradeRecordSha256": "6b3ce14ee45d71b7264154eafc6407a65e12a7c3f8dc1b8db585b5ab7ab61d7a"
+  },
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposerAndExecutor": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "pair": {
+    "label": "NVDA/USDG/CANARY",
+    "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+    "vault": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+    "stockToken": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "stockSideAccount": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "usdgSideAccount": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "liveImplementations": {
+    "vault": "0xEF3F12c9D60bc86484dac6250BCC25d784Ba200B",
+    "vaultRuntimeCodeHash": "0x82488738fbf2fad4520aa28fa8b1451a580ad208d328a741fa268da8c64435ac",
+    "adapter": "0x145700AA1575E7Fb84162D2c8C5201cf683df335",
+    "adapterRuntimeCodeHash": "0x3cb954f31b87bc3ed6c253c8d038db929070a4cc4952a3e5287192965c145b8e"
+  },
+  "preconditions": {
+    "verificationBlockNumber": 33539740,
+    "verificationBlockHash": "0x0c7104cfb4b7c0a988cb1c0021dffa2af967f8d01c9d7879294855ea030020ac",
+    "verificationTimestampUtc": "2026-08-11T09:05:06Z",
+    "enableOperationState": 0,
+    "finalPauseOperationState": 0,
+    "allocationPaused": true,
+    "swapsPaused": true,
+    "emergencyMode": false,
+    "stockPrincipal": "0",
+    "usdgPrincipal": "0",
+    "stockIdle": "0",
+    "usdgIdle": "0",
+    "positionLiquidity": "0",
+    "stockReserve": "0",
+    "usdgReserve": "0",
+    "vaultAndAdapterUpgradesVerified": true,
+    "oraclePoolPreflightPassed": true,
+    "stockPriceUSD18": "219320000000000000000",
+    "poolSqrtPriceX96": "5355011282870521625187444182114094",
+    "poolTick": 222435,
+    "poolLiquidity": "868268123827237578",
+    "maxPriceDeviationBps": 300,
+    "removalToleranceBps": 400
+  },
+  "amountPolicy": {
+    "stockDeposit": "20000000000000000",
+    "stockDepositDisplay": "0.02 NVDA",
+    "usdgDeposit": "3000000",
+    "usdgDepositDisplay": "3 USDG",
+    "maximumIdleStockWithdrawal": "2000000000000000",
+    "maximumIdleStockWithdrawalDisplay": "0.002 NVDA",
+    "pairValueCapUSDG18": "100000000000000000000",
+    "settlementSwapCapUSDG18": "10000000000000000000",
+    "fullGuardianRemovalRequired": true
+  },
+  "operations": [
+    {
+      "order": 1,
+      "name": "enable-capped-post-upgrade-canary",
+      "target": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+      "value": "0",
+      "calldata": "0x07e1385e536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "decodedCall": "setPairPause(0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee, false, false, false)",
+      "predecessor": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "salt": "0xf68be9d340cdacbb566c8cac4ecd9884292ac964aa7467c642a0e737a7f42712",
+      "saltPreimage": "NVDA/USDG/CANARY:post-upgrade-enable:v1:1d7492a3df0fdab547d0ee2b7c81d438984db3c5",
+      "operationId": "0x70f7f9dca070dab555a592877e51599f66ede6bdee0b618c81fb7b1b946a50cf",
+      "delaySeconds": 3600,
+      "scheduleExecution": {
+        "transactionHash": "0x4eecd7637b423904f09767b855fe3b625763e384a63527461f26b7c3c73d5ffc",
+        "blockNumber": 33548571,
+        "blockHash": "0xe1bada8507c39c0f35099ab9b539e403a33c3e6c78bb9bfc473e2b134e67df3d",
+        "scheduledAtUtc": "2026-08-11T09:19:52Z",
+        "readyAtTimestamp": 1786443592,
+        "readyAtUtc": "2026-08-11T10:19:52Z",
+        "receiptStatus": 1,
+        "gasUsed": 57558,
+        "effectiveGasPriceWei": 27000000,
+        "paidWei": "1554066000000",
+        "verifiedOperationState": 1
+      },
+      "execution": {
+        "transactionHash": "0xb56224101560dcba302291deaa37a2ebb41b4457481feec0c21f59c698cf8616",
+        "blockNumber": 34529411,
+        "blockHash": "0x959a554a312401cf7f01578373a6dce1a10979b2abd74d1afe0ab920c9ba45b2",
+        "executedAtUtc": "2026-08-12T12:29:57Z",
+        "receiptStatus": 1,
+        "gasUsed": 56987,
+        "effectiveGasPriceWei": 50766000,
+        "paidWei": "2893002042000",
+        "operationState": 3,
+        "verifiedAtBlockNumber": 34550390,
+        "verifiedAtBlockHash": "0x7cc323e17528d5be9b6d9858e1591345d13335669bbdeedb56fefdd516009b71",
+        "verifiedAtUtc": "2026-08-12T13:04:55Z",
+        "allocationPaused": false,
+        "swapsPaused": false,
+        "emergencyMode": false,
+        "canaryDrained": true,
+        "recoveryPauseOperationState": 2
+      },
+      "expectedPostState": {
+        "allocationPaused": false,
+        "swapsPaused": false,
+        "emergencyMode": false
+      }
+    },
+    {
+      "order": 2,
+      "name": "restore-paused-non-emergency-state",
+      "target": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+      "value": "0",
+      "calldata": "0x07e1385e536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000",
+      "decodedCall": "setPairPause(0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee, true, true, false)",
+      "predecessor": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "salt": "0xa061aff79aa731ae6348b5da28dff10541d62b49b59bfa0c5c22c6b626129088",
+      "saltPreimage": "NVDA/USDG/CANARY:post-upgrade-final-pause:v1:1d7492a3df0fdab547d0ee2b7c81d438984db3c5",
+      "operationId": "0x307e583da5ccc450c63245bc9cb5a8194c3048768556e609659e8fb856988450",
+      "delaySeconds": 3600,
+      "scheduleExecution": {
+        "transactionHash": "0x3d9339f33516f04729fd42d544c9a62a4a23b629b5d048dc6db58bb68e90a24e",
+        "blockNumber": 33548788,
+        "blockHash": "0x52a3ed03d5263217029a08ac16e5465ea1fa6df06efd18d75811b0022523bf3e",
+        "scheduledAtUtc": "2026-08-11T09:20:14Z",
+        "readyAtTimestamp": 1786443614,
+        "readyAtUtc": "2026-08-11T10:20:14Z",
+        "receiptStatus": 1,
+        "gasUsed": 57582,
+        "effectiveGasPriceWei": 27324000,
+        "paidWei": "1573370568000",
+        "verifiedOperationState": 1
+      },
+      "expectedPostState": {
+        "allocationPaused": true,
+        "swapsPaused": true,
+        "emergencyMode": false
+      }
+    }
+  ],
+  "executionPolicy": [
+    "Verify this record's detached SHA-256 digest before every schedule and execution.",
+    "Schedule both independent operations before funding so the final pause is already available as a recovery action when the canary begins.",
+    "Require each operation to be state 0 before scheduling and state 2 before execution.",
+    "Run the live fail-closed oracle and pool preflight immediately before enabling the canary and immediately before guardian removal.",
+    "Execute the enable operation first and confirm the pair becomes unpaused without changing balances or accounting.",
+    "Never exceed the recorded deposit and idle-withdrawal amounts.",
+    "Require the idle stock withdrawal to complete while LP liquidity remains, then verify the position is still open and the withdrawal settled current shared PnL.",
+    "Guardian removal must target the complete live position and must atomically enter emergency mode.",
+    "Call fee collection after liquidity reaches zero but before burning the NFT; it must return successfully and report zero fees.",
+    "Burn the empty position, execute the final pause operation to clear emergency mode while remaining paused, checkpoint any residual assets, and withdraw both sides.",
+    "Conclude only after the drained assertion passes, both pause flags are true, emergency mode is false, and token allowances are zero."
+  ]
+}

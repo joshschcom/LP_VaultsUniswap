@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "status": "CONFIGURATION_REVIEWED_PENDING_TIMELOCK",
+  "preparedAtUtc": "2026-07-27T07:16:15Z",
+  "chainId": 4663,
+  "network": "Robinhood Chain Mainnet",
+  "vaultSystemManifest": "./robinhood-mainnet.vault-system.json",
+  "detachedManifestSha256File": "./robinhood-mainnet.nvda.canary.sha256",
+  "source": {
+    "deployedSourceCommit": "0baf5b65ea1879210c75a5f0b4c7ae2fde6f4294",
+    "deploymentRecordCommit": "9cb1f8e466d2c3d5201a6cbceb8d5644295a9773"
+  },
+  "governance": {
+    "timelock": "0x6797FB8Ce049B42C5BC2b42Bf76c6d15C7B12498",
+    "minimumDelaySeconds": 3600,
+    "proposer": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "executor": "0x94696d767e65a75581145646960FA0eC886cE5d2"
+  },
+  "contracts": {
+    "vault": "0x280825b2d856706Ff7E0d6351CcB2e935E1a9A2f",
+    "oracle": "0xaE4D4DdB8dD646951d54fE9B13BE23DcB61C6741",
+    "reserve": "0x806b182B050f7EcF908758dD6bBF91DB8B2212aF",
+    "adapter": "0xadA73211711e4790bc83B5d6B39f47fE04D276f3"
+  },
+  "uniswap": {
+    "poolManager": "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+    "positionManager": "0x58daec3116aae6d93017baaea7749052e8a04fa7",
+    "stateView": "0xf3334192d15450cdd385c8b70e03f9a6bd9e673b",
+    "universalRouter": "0x8876789976decbfcbbbe364623c63652db8c0904",
+    "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+  },
+  "pair": {
+    "label": "NVDA/USDG/CANARY",
+    "pairId": "0x536e330d7e6d12c73d1ae0547dfec4ea4d47ad94f4244a096ea5fad4f87f28ee",
+    "stockName": "NVIDIA • Robinhood Token",
+    "stockSymbol": "NVDA",
+    "stockToken": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+    "stockDecimals": 18,
+    "usdg": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+    "usdgDecimals": 6,
+    "stockSideAccount": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "usdgSideAccount": "0x94696d767e65a75581145646960FA0eC886cE5d2",
+    "temporaryEoaSideAccounts": true,
+    "poolId": "0x3bb34a44f1b2b5f32c034c38a53065a521a47b199700fa9bd19d60985ff24bf1",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "hooks": "0x0000000000000000000000000000000000000000",
+    "stockPriceFeed": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
+    "stockPriceFeedDescription": "RHNVDA / USD",
+    "stockFeedDecimals": 8,
+    "uiMultiplier": "1000000000000000000",
+    "pendingMultiplier": "",
+    "stockPriceBoundsUSD18": {
+      "min": "100000000000000000000",
+      "max": "400000000000000000000"
+    },
+    "tradingSessionMaxStalenessSeconds": 43200,
+    "weekendPolicy": "Fail closed after 12 hours without a fresh feed update; no pool-price fallback.",
+    "sequencerFeed": "0x0000000000000000000000000000000000000000",
+    "sequencerGracePeriodSeconds": 3600,
+    "sequencerWaiverApproved": true,
+    "sequencerWaiverReason": "No Robinhood-specific proxy is published in Chainlink's official L2 Sequencer Uptime Feed registry; the Arbitrum One proxy is not deployed on chain 4663."
+  },
+  "riskPolicy": {
+    "maxPairValueUSDG18": "100000000000000000000",
+    "aggregateUsdgDepositCap": "100000000000000000000",
+    "maxSettlementSwapUSDG18": "10000000000000000000",
+    "maxCheckpointAgeSeconds": 3600,
+    "maxDeadlineDelaySeconds": 300,
+    "maxPriceDeviationBps": 300,
+    "removalToleranceBps": 400,
+    "maxSwapSlippageBps": 100,
+    "withdrawOverUnwindBps": 200,
+    "reserve": {
+      "maxUsePerTxUSDG18": "10000000000000000000",
+      "dailyCapUSDG18": "25000000000000000000",
+      "maxCoverageBps": 5000,
+      "feeShareBps": 2000
+    },
+    "initialState": {
+      "allocationPaused": true,
+      "swapsPaused": true,
+      "emergencyMode": false,
+      "funded": false
+    }
+  },
+  "registrySnapshot": {
+    "file": "./snapshots/robinhood-nvda-2026-07-27.json",
+    "sha256": "0xf18b88d98076b3e7e41369c656df42a0283cbfbc22e845571bb3bdd0f668c224"
+  },
+  "executionRequirements": [
+    "Run the live fail-closed preflight using this manifest's detached SHA-256 digest.",
+    "Schedule and execute oracle, reserve, aggregate-cap, and vault-pair configuration in that order through the timelock.",
+    "Verify the registered pair remains allocation-paused, swaps-paused, unfunded, and without a position.",
+    "Do not transfer NVDA or USDG until a separate allocation-enablement operation has completed its timelock delay.",
+    "Replace both temporary EOA side accounts with the production market contracts only by registering the separate NVDA/USDG production pair."
+  ]
+}

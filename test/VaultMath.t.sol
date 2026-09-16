@@ -63,4 +63,9 @@ contract VaultMathTest is Test {
         vm.expectRevert(VaultMath.InvalidPrice.selector);
         harness.amountsForLiquidity(0, 1, 2, 1);
     }
+
+    function testValueAvoidsIntermediateScalingOverflow() external view {
+        uint256 amount = type(uint256).max / 1e18 + 1;
+        assertEq(harness.value(amount, 0, 1), amount);
+    }
 }

@@ -112,7 +112,13 @@ contract UniswapV4PairedAdapterTest is Test {
 
         assertEq(used, 5e18);
         assertEq(output, 4e18);
+        assertEq(router.lastMinHopPriceX36(), 0.8e36);
         _assertAllowancesZero();
+    }
+
+    function testPermit2DeadlineCannotTruncateToUint48() external {
+        vm.expectRevert(UniswapV4PairedAdapter.InvalidDeadline.selector);
+        adapter.swapExactInput(PAIR_ID, address(stock), 5e18, 4e18, uint256(type(uint48).max) + 1);
     }
 
     function testRemovalMinimumsUseReferencePriceAndReturnObservedLiquidityDelta() external {
@@ -137,6 +143,36 @@ contract UniswapV4PairedAdapterTest is Test {
         vm.expectRevert(UniswapV4PairedAdapter.InvalidReferencePrice.selector);
         adapter.decreaseLiquidity(
             PAIR_ID, added / 2, TickMath.MIN_SQRT_PRICE - 1, block.timestamp + 60
+        );
+    }
+
+    function testCollectFeesReturnsZeroForEmptyUnburnedPosition() external {
+        (,, uint128 added) = adapter.addLiquidity(PAIR_ID, 100e18, 100e18, block.timestamp + 60);
+        adapter.decreaseLiquidity(PAIR_ID, added, uint160(1 << 96), block.timestamp + 60);
+
+        IUniswapV4PairedAdapter.PositionState memory position = adapter.positionState(PAIR_ID);
+        assertNotEq(position.tokenId, 0);
+        assertEq(position.liquidity, 0);
+
+        (uint256 stockFees, uint256 usdgFees) = adapter.collectFees(PAIR_ID, block.timestamp + 60);
+
+        assertEq(stockFees, 0);
+        assertEq(usdgFees, 0);
+        assertEq(adapter.positionState(PAIR_ID).tokenId, position.tokenId);
+        _assertAllowancesZero();
+    }
+
+    function testRegistrationRejectsUnsafeRemovalTolerance() external {
+        vm.expectRevert(UniswapV4PairedAdapter.InvalidConfiguration.selector);
+        adapter.registerPair(
+            keccak256("UNSAFE/STOCK"),
+            IUniswapV4PairedAdapter.RegisterPairParams({
+                stockToken: address(stock),
+                usdg: address(usdg),
+                poolKey: key,
+                expectedPoolId: PoolId.unwrap(key.toId()),
+                removalToleranceBps: 2_001
+            })
         );
     }
 
