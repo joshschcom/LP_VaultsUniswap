@@ -164,6 +164,57 @@ leaving 24,697,449,583 wei NVDA permanently unattributable in the vault.
 The reserve held no USDG, so the reserve-cover step of the waterfall was not exercised; the
 deficit went straight to the settlement swap.
 
+## Production pair and boosted markets
+
+The `NVDA/USDG` production pair is registered and carries a live LP position. The
+two side accounts are Peridot boosted pTokens deployed on 4663 on 2026-09-08;
+before that, no lending core existed on this chain at all.
+
+| | Address |
+| --- | --- |
+| Peridottroller (Unitroller) | `0x6148183676e304dbe63a85c350c208da3ceac39c` |
+| Price oracle (`StockSimplePriceOracle`) | `0x266f014d1325774f1190f963df4369e07dda1d33` |
+| Interest rate model | `0x0987154fb5676a8ea545aaf41f8ef2492f785d22` |
+| `bpNVDA` (stock side account) | `0xa155cccb986774ae818b3f10f07d01d1b7a47b26` |
+| `bpUSDG` (USDG side account) | `0x55aed0569c8f0d166d71face57b57c2f2624a563` |
+
+Both markets run one side-neutral `RobinhoodBoostedDelegate`, both carry a
+`vaultBufferMantissa` of 50%, and both were listed and seeded atomically so no
+externally reachable empty market ever existed. The first production LP position
+is token `2752736`, holding 0.00944 NVDA and 1.999 USDG, about $4.
+
+**The markets are not yet usable.** Collateral factors are zero, borrowing is
+paused, settlement swaps are paused on the pair, and the loss reserve is
+unfunded. Full detail, including the buffer rationale and the rejected
+asymmetric alternative, is in
+[`robinhood-mainnet.production-pair.json`](./robinhood-mainnet.production-pair.json)
+with its digest in
+[`robinhood-mainnet.production-pair.sha256`](./robinhood-mainnet.production-pair.sha256).
+
+### Three operational findings from this rollout
+
+**A pair can only be registered while the underlying market is open.**
+`registerPair` calls `pricesUSD18`, so it fails closed on a stale feed. The first
+attempt reverted `StaleOracle` on Saturday 2026-09-05 at a 20.3h gap and stayed
+blocked through US Labor Day on Monday, reaching 69.7h before the feed returned
+on the Tuesday. Schedule oracle-touching governance against market hours, not
+only against the timelock delay: across a holiday weekend the effective latency
+is about seventy hours.
+
+**Depositing into a paused pair fails silently.**
+`RobinhoodBoostedDelegate._depositToVault` wraps `depositForPair` in a
+`try/catch`, and `depositForPair` reverts `AllocationPaused` while the pair is
+paused. Calling `rebalanceVault()` before allocation is enabled therefore
+succeeds as a transaction while moving nothing. The catch is correct — it stops a
+vault fault freezing the pToken's local cash — but it means a misordered
+operation looks like success. Enable allocation first, and verify
+`vaultAccountedAssets()` rather than trusting the receipt.
+
+**Checkpoint before rebalance, never after.** `rebalance` calls `_requireFresh`
+and reverts `CheckpointStale` beyond `maxCheckpointAge`. This has now bitten
+twice, in the post-upgrade canary and again here with a checkpoint 10,423 minutes
+stale.
+
 ## Deployment procedure
 
 The order below is the reviewed rollout for a new pair. Simulate every script first;
