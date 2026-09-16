@@ -187,11 +187,22 @@ is token `2752736`, holding 0.00944 NVDA and 1.999 USDG, about $4.
 borrowing enabled on 2026-09-16, so third parties can supply, borrow against and
 be liquidated on them.
 
-Two gaps were open at that moment and remain open. The **loss reserve holds zero
-of both assets**, so the reserve-cover step of the waterfall has still never
-executed on mainnet; a deficit today skips it and, with settlement swaps also
-paused on this pair, is absorbed entirely by pro-rata loss across both sides.
-And **governance is still one EOA**, which holds the timelock roles, both keeper
+**Reserve-backed cover now has mainnet coverage.** On 2026-09-16 the reserve was
+funded with 0.0002 NVDA and the stock-side pToken withdrew its full claim, which
+unwound the LP and hit a natural NVDA deficit created by the price moving from
+$211.92 to $213.04. The reserve supplied 0.0000165 NVDA — matching the 50%
+coverage cap almost exactly — with settlement swaps paused, so the leg was
+exercised in isolation. All three steps of the waterfall have now run on
+mainnet.
+
+A fourth silent-failure case surfaced doing it. `syncVault` consumed 866k gas and
+emitted `VaultWithdrawalFailed` while moving nothing: the inner `withdrawForSide`
+needs 1,030,433 gas but `eth_estimateGas` proposed 914,205, because a caught
+failure still leaves the outer transaction successful and the estimator accepts
+it. **Send operator actions on the delegate with an explicit gas limit and verify
+state, not the receipt.**
+
+**Governance is still one EOA**, which holds the timelock roles, both keeper
 and guardian, controller admin and both pToken admins. Full detail, including the
 buffer rationale and the rejected asymmetric alternative, is in
 [`robinhood-mainnet.production-pair.json`](./robinhood-mainnet.production-pair.json)
