@@ -183,10 +183,17 @@ Both markets run one side-neutral `RobinhoodBoostedDelegate`, both carry a
 externally reachable empty market ever existed. The first production LP position
 is token `2752736`, holding 0.00944 NVDA and 1.999 USDG, about $4.
 
-**The markets are not yet usable.** Collateral factors are zero, borrowing is
-paused, settlement swaps are paused on the pair, and the loss reserve is
-unfunded. Full detail, including the buffer rationale and the rejected
-asymmetric alternative, is in
+**The markets are open.** Both were set to an 80% collateral factor with
+borrowing enabled on 2026-09-16, so third parties can supply, borrow against and
+be liquidated on them.
+
+Two gaps were open at that moment and remain open. The **loss reserve holds zero
+of both assets**, so the reserve-cover step of the waterfall has still never
+executed on mainnet; a deficit today skips it and, with settlement swaps also
+paused on this pair, is absorbed entirely by pro-rata loss across both sides.
+And **governance is still one EOA**, which holds the timelock roles, both keeper
+and guardian, controller admin and both pToken admins. Full detail, including the
+buffer rationale and the rejected asymmetric alternative, is in
 [`robinhood-mainnet.production-pair.json`](./robinhood-mainnet.production-pair.json)
 with its digest in
 [`robinhood-mainnet.production-pair.sha256`](./robinhood-mainnet.production-pair.sha256).

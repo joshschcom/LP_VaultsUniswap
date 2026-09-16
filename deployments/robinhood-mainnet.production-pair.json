@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "LIVE_LP_POSITION_MARKETS_NOT_YET_BORROWABLE",
-  "verifiedAtUtc": "2026-09-16T00:31:42Z",
+  "status": "LIVE_MARKETS_OPEN_RESERVE_UNFUNDED",
+  "verifiedAtUtc": "2026-09-16T01:05:00Z",
   "chainId": 4663,
   "network": "Robinhood Chain Mainnet",
-  "summary": "Production NVDA/USDG pair registered with two boosted pTokens as its side accounts, allocation enabled, and the first production LP position opened. Collateral factors remain zero and borrowing remains paused, so the markets are not yet usable by depositors.",
+  "summary": "Production NVDA/USDG pair registered with two boosted pTokens as its side accounts, allocation enabled, first production LP position open, and both markets opened to depositors at an 80% collateral factor with borrowing enabled.",
   "source": {
     "vaultRepository": "joshschcom/LP_VaultsUniswap",
     "vaultBranch": "robinhood-vault-canary",
@@ -47,8 +47,8 @@
       "underlying": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
       "seedAmount": "20000000000000000",
       "borrowCap": "4350000000000000000",
-      "collateralFactor": "0",
-      "borrowPaused": true,
+      "collateralFactor": "800000000000000000",
+      "borrowPaused": false,
       "vaultBufferMantissa": "500000000000000000"
     },
     "bpUSDG": {
@@ -56,8 +56,8 @@
       "underlying": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
       "seedAmount": "4000000",
       "borrowCap": "1000000000",
-      "collateralFactor": "0",
-      "borrowPaused": true,
+      "collateralFactor": "800000000000000000",
+      "borrowPaused": false,
       "vaultBufferMantissa": "500000000000000000"
     },
     "seedPolicy": "Seed pTokens are held by the deployer and must never be fully redeemed. Their purpose is to keep totalSupply far from zero; at 8-decimal pTokens and the 0.02 initial rate the seed leaves billions of pToken units, which caps mint-rounding loss at fractions of a cent. Redeeming the whole seed returns totalSupply to zero and re-opens first-depositor exposure."
@@ -110,11 +110,32 @@
     "safetyComparison": "At 50% versus 30%, instantly redeemable share during a stale feed window rises from 30% to 50% of the market, and the exchange-rate hit from a 2x NVDA move falls from 4.00% to 2.86%."
   },
   "notYetLive": [
-    "Collateral factors are zero on both markets.",
-    "Borrowing is paused on both markets.",
     "Settlement swaps remain paused on the pair.",
-    "The loss reserve is unfunded, so the reserve-cover leg of the waterfall has still never executed on mainnet.",
     "Timelock proposer, canceller and executor remain the single deployer EOA."
   ],
-  "nextRequiredAction": "Fund the loss reserve and run a canary cycle on this pair to exercise reserve-backed cover, then set collateral factors and unpause borrowing. Migrate governance off the single EOA before accepting material TVL."
+  "nextRequiredAction": "Fund the loss reserve and exercise reserve-backed cover, then migrate governance off the single EOA. Both remain open while the markets are live.",
+  "marketsOpened": {
+    "atUtc": "2026-09-16T01:00:00Z",
+    "collateralFactor": "800000000000000000",
+    "borrowingEnabled": true,
+    "transactions": {
+      "setCollateralFactorUsdg": "0x057d002d18754968d2d95744344e3cc232c3e6c27d4669555027a5549bc8f310",
+      "setCollateralFactorNvda": "0x8c143894257fc4ea4bfd0d01c256a017718b631057cbb48da2d355a3f0f8dcbc",
+      "unpauseBorrowUsdg": "0x9e5aac2dbd60810b242a64f9c91cc69ad76212bc1cd15f7c7ba17d0a4f5f9455",
+      "unpauseBorrowNvda": "0xbbcb3e9dd5ed383e496417638c0ed362a3d66ee3f5d8d813b0e196c702987a85"
+    }
+  },
+  "knownGaps": {
+    "reserveCoverNeverExercised": {
+      "description": "The loss reserve holds zero of both assets and the reserve-cover step of the waterfall has never executed on mainnet. The markets were opened to depositors before this was closed.",
+      "consequence": "A withdrawal deficit today skips reserve cover entirely. Settlement swaps are also paused on this pair, so the deficit is absorbed by pro-rata loss across both sides. That is the designed fallback and it functions, but the untested leg is carrying the load rather than the tested one.",
+      "blocker": "Closing it needs more capital than the deployer holds: 0.00499 NVDA and 0.997 USDG remain, which cannot both fund a reserve and create a deficit large enough to draw on it.",
+      "recommendation": "Fund the reserve and run a deficit cycle before accepting third-party deposits at any scale."
+    },
+    "singleKeyGovernance": {
+      "description": "Timelock proposer, canceller and executor are the single deployer EOA, which also holds KEEPER_ROLE, GUARDIAN_ROLE, controller admin and both pToken admins.",
+      "consequence": "One key can upgrade every proxy, reconfigure every market, and pause or unpause at will.",
+      "recommendation": "Run the two-phase migration in MigrateTimelockGovernance.s.sol against a Safe deployed on 4663 with threshold at least two, before accepting material TVL."
+    }
+  }
 }
