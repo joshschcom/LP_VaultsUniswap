@@ -1,0 +1,669 @@
+{
+  "surface": "Read-only deployment verification",
+  "rpcURL": "https://rpc.mainnet.chain.robinhood.com",
+  "chainId": 4663,
+  "mode": "active",
+  "pin": {
+    "chainId": 4663,
+    "rpc": "https://rpc.mainnet.chain.robinhood.com",
+    "stateBlock": 66724297,
+    "nativeEvmBlockNumber": 26008563,
+    "timestamp": 1789784795,
+    "blockHash": "0x30b1871f1a58c84af9dbce57e274e7dc3360cef56f14b434b30d5292f833e15e"
+  },
+  "contracts": {
+    "guardedSource": {
+      "address": "0x25E02b142E0785a59D85a6CA820c400e601a9E8E",
+      "contract": "GuardedMarginPriceSource",
+      "runtimeBytes": 1069,
+      "eip170HeadroomBytes": 23507,
+      "runtimeCodeHash": "0x4e5e71bba2d335187330d58858da7644bc3515d5f68071af4256e8c17290141b",
+      "artifactSha256": "619c01606198237604cb604f537a4cf8c6273bacb9834d4570231391a408eceb",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220ac73cca5185379a2440e1afdbd9cea072878e0661201895ae0ac2dbbe6c729bc64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220ac73cca5185379a2440e1afdbd9cea072878e0661201895ae0ac2dbbe6c729bc64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 433,
+          "length": 32
+        },
+        {
+          "start": 764,
+          "length": 32
+        },
+        {
+          "start": 313,
+          "length": 32
+        },
+        {
+          "start": 655,
+          "length": 32
+        },
+        {
+          "start": 189,
+          "length": 32
+        },
+        {
+          "start": 611,
+          "length": 32
+        },
+        {
+          "start": 245,
+          "length": 32
+        },
+        {
+          "start": 549,
+          "length": 32
+        },
+        {
+          "start": 115,
+          "length": 32
+        },
+        {
+          "start": 967,
+          "length": 32
+        }
+      ]
+    },
+    "router": {
+      "address": "0xa32C34F100B4F1f36ECA09c427a098f99F4423F0",
+      "contract": "RobinhoodV4RouterAdapter",
+      "runtimeBytes": 5733,
+      "eip170HeadroomBytes": 18843,
+      "runtimeCodeHash": "0xe713e3ac0b3e0501e8c040760fd2be33daca297114c197a5878ffbf570b05c4a",
+      "artifactSha256": "925c429c754e0c9a5c52eaa024bf8647b5fd559ea877ac7ed7d07249e38d64a6",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a26469706673582212205e2ccf0d6355e6186dc78059f99164b2d47a871cc234b35ec9d90a5b5d70fa3164736f6c634300081a0033",
+      "compiledCborMetadata": "a26469706673582212205e2ccf0d6355e6186dc78059f99164b2d47a871cc234b35ec9d90a5b5d70fa3164736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "oracle": {
+      "address": "0x63150Eb3DDf71420dA0b09b66838aab398f7dEdD",
+      "contract": "RobinhoodMarginPriceOracle",
+      "runtimeBytes": 2297,
+      "eip170HeadroomBytes": 22279,
+      "runtimeCodeHash": "0xdda8d2ce7914eff2a3cc0e9686a1f62bb5262db864653f6431585c1958c0722b",
+      "artifactSha256": "5ddf2b4166caa22835b72ad88a7febacc13eeae92729f373555f97399857d8dc",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220e552eb95fd7686d7fbb94bfec73c55c869d11b337c93dbecd83d0a9853e5049564736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220e552eb95fd7686d7fbb94bfec73c55c869d11b337c93dbecd83d0a9853e5049564736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "flashVault": {
+      "address": "0x79d33c9BbC1D0711e88C5602f86135Ab4C088b06",
+      "contract": "SimpleFlashLoanVault",
+      "runtimeBytes": 2977,
+      "eip170HeadroomBytes": 21599,
+      "runtimeCodeHash": "0x50eee81770d6e7f55c943f22d7f1842c32b81b838ceb416a58f84e47be611bf7",
+      "artifactSha256": "30285760e10000ca6778bb36bccdbc0f9de827add9fb5885e437e44b4b9a8cd8",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a26469706673582212205596867ee2810a59952d689dd3b4ccec507b7eb5302e0c8963ec5c903bfeb9ea64736f6c634300081a0033",
+      "compiledCborMetadata": "a26469706673582212205596867ee2810a59952d689dd3b4ccec507b7eb5302e0c8963ec5c903bfeb9ea64736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "quoter": {
+      "address": "0xeD3c353Ab237329BD53CC7eB24E66B370155FE6e",
+      "contract": "IsolatedMarginQuoter",
+      "runtimeBytes": 6507,
+      "eip170HeadroomBytes": 18069,
+      "runtimeCodeHash": "0x70121c6cda6e58953b390ffbb554cf01312f83f6335d4ab48725f6383c787cf8",
+      "artifactSha256": "95c7e80792cbc02bbe1730159cf4fef54d7942f33a5cfe8ac642a8db3a727d34",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220748dad8d44c41c7362229cc3bb4e932cd862f5f7900fb010d1879d65f8c0eed864736f6c634300081a0033",
+      "compiledCborMetadata": "a26469706673582212202adef49e7030ea97c05c709dad59af17f18af03e4434b0441fb2babb64d45b5664736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 1570,
+          "length": 32
+        },
+        {
+          "start": 1809,
+          "length": 32
+        },
+        {
+          "start": 3825,
+          "length": 32
+        },
+        {
+          "start": 1502,
+          "length": 32
+        },
+        {
+          "start": 4059,
+          "length": 32
+        },
+        {
+          "start": 4380,
+          "length": 32
+        }
+      ]
+    },
+    "swapModule": {
+      "address": "0xa2a022B17e0201894937755584EecC878AEFe1bf",
+      "contract": "IsolatedMarginSwapModule",
+      "runtimeBytes": 2717,
+      "eip170HeadroomBytes": 21859,
+      "runtimeCodeHash": "0x13db9938ad42c87566e695c3929296f8d37412d549f8098249b34d628e22ee5b",
+      "artifactSha256": "749b21b8a38437fdabcccdd58cd4efa31d69cd5073130174f16ee1adc93e5d5f",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220de3e37e4aa75e2f704cddf026ba8333899a74df04cdd6af8ea25ca9a240e092a64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220cc57172f73826b609e2aae62b6d230d7ee14240e9f4aa69c1d72c439be519ebb64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 320,
+          "length": 32
+        },
+        {
+          "start": 2267,
+          "length": 32
+        },
+        {
+          "start": 82,
+          "length": 32
+        },
+        {
+          "start": 399,
+          "length": 32
+        }
+      ]
+    },
+    "accountFactory": {
+      "address": "0x88BDf12F3b6B5C11bd0Ed5c117181FeA3130D15C",
+      "contract": "IsolatedMarginAccountFactory",
+      "runtimeBytes": 1292,
+      "eip170HeadroomBytes": 23284,
+      "runtimeCodeHash": "0xbefc1cdd65cd63a908d73e9cfa9fd1c94dc8055bf18ad80a01123cecb489eb30",
+      "artifactSha256": "73308fb6cc966ad7dbd1e18e86fbfb23e1a5b91ce154c9285417044a7fcb82fa",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122054a03173ecd340cc743eb2b923bfb7a8c84efeee098fe432a2af547905c78d8a64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220b8c7e699db2ce211c9f5fbcd5df30bfc05da415bea952fac5babaf83d7657bcf64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 789,
+          "length": 32
+        },
+        {
+          "start": 864,
+          "length": 32
+        },
+        {
+          "start": 271,
+          "length": 32
+        },
+        {
+          "start": 721,
+          "length": 32
+        }
+      ]
+    },
+    "config": {
+      "address": "0x09F94fe0B79E000c8a26617c63E3427fdECB528b",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0x5c0700b5e1fb03b4e1a3c153c774b2ad0f4eb56c185cc951fd43c568625e51f6",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "configImplementation": {
+      "address": "0xac01f0565f966406d9ed4e0bfd726d9b4883ee8a",
+      "contract": "IsolatedMarginConfigUpgradeable",
+      "runtimeBytes": 9730,
+      "eip170HeadroomBytes": 14846,
+      "runtimeCodeHash": "0xa8a0031a0f108e0a39b6e2a12487b2ccd0e02d3b68baea31c5db7c3a47d084ca",
+      "artifactSha256": "1f73ace842dd999ffa21f34ea27a303b6afed9365a379584f7762ce19c59e0b3",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220ac42f246d6b31b93b1404b67d858493d80648475ae4fc867d6b74fa9ac23db2664736f6c634300081a0033",
+      "compiledCborMetadata": "a26469706673582212208eec07508d17cbe409a423b1ee5608f48359b80a3ecbe8ac3810f955e3f83da164736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "configAdmin": {
+      "address": "0xf483213b2f0de3b7501d5e67c494dc8b5e07223f",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "executor": {
+      "address": "0x6A45Ae86bD992d250580d08D340A06A04D478977",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0x0b713d84e28867973dfd8b019461aadbbf5e671ac0d1a2c1770531597cc0bd36",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "executorImplementation": {
+      "address": "0xd44a1d425cfa875efc0263c0cf717840c213fbd8",
+      "contract": "IsolatedMarginExecutorUpgradeable",
+      "runtimeBytes": 21254,
+      "eip170HeadroomBytes": 3322,
+      "runtimeCodeHash": "0xbaa445e0c3c41eb97f9929a3e4b2e7d8764a6755330f079add25c3943812707b",
+      "artifactSha256": "c1b447b940104590b16aa183cff7bfbe3fd03ebc0244bb70d6bc40a7fad6ec2f",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122022e9563db7370e0b9de6bf7cbe5adb75bfd23b08e362ddfdbf5478513c88b5f964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122022e9563db7370e0b9de6bf7cbe5adb75bfd23b08e362ddfdbf5478513c88b5f964736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "executorAdmin": {
+      "address": "0x561fa1749f4b58a70d0d7d67e74e6fbeeba6f9b8",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "liquidator": {
+      "address": "0x1434CDa56d0Aeac4d5abC16F91ca76a8A989083c",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0xba7b353b460a3f64fb4685cfda6f9ffdf66c4fddf796c1775bde9538d5f0fa44",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "liquidatorImplementation": {
+      "address": "0x868dbcb39fea9060272504e0636a1e068a13e3a2",
+      "contract": "IsolatedMarginLiquidatorUpgradeable",
+      "runtimeBytes": 12815,
+      "eip170HeadroomBytes": 11761,
+      "runtimeCodeHash": "0x8188387f51547a8fc805c9929455695928a6d6461a87c85ea659eea447982066",
+      "artifactSha256": "a4e1fab2e39b412d3d74df18335c4eef8fadd9eeca6fc9032f614bf32998e854",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122034adca633c18e95b88593bf820356c2306cb74cd8131156b2ac95ca41e612b1864736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122034adca633c18e95b88593bf820356c2306cb74cd8131156b2ac95ca41e612b1864736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "liquidatorAdmin": {
+      "address": "0xefabb43f04594734dda642b2e20f3b3e50ae059d",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "riskEngine": {
+      "address": "0xC8b178C3c74570472FF1eeE0DD559e61AF9f9678",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0xd4dcf099f244497d1a05789ed257fa13c1a0245ba929b570656aa71fd86e9130",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "riskEngineImplementation": {
+      "address": "0x6408136abd8182fdc3becaf0f7dea2163baa1676",
+      "contract": "IsolatedMarginRiskEngineUpgradeable",
+      "runtimeBytes": 14665,
+      "eip170HeadroomBytes": 9911,
+      "runtimeCodeHash": "0x7277003001607079f29ae68b6624be818ee2300f21c42b4059262f19967b24fa",
+      "artifactSha256": "0f18be74f6da89460fd00edd45816c7cc2eab110ab8be3707283093053b22fc3",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220e6057f3c067a65d84164fc6f3b06cda0b75d0dbefc83c56065efe777e992c3a764736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220a350095e18c5d104b0b4fa2dcbe709c58b33a26cad32aea7904707a6d3399d6964736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "riskEngineAdmin": {
+      "address": "0xba8f4e4554e794d961dd8b928ded1812c6862505",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "marginVault": {
+      "address": "0x04D4A5555b7a37017A67B4D21A1Da5838de28B9e",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0x74652ca8422d38ee00005d2eb64c1e859b12f946565854cdbc9119643412c95e",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "marginVaultImplementation": {
+      "address": "0xa27012f6d0cb100182b736de99354376e75f4022",
+      "contract": "IsolatedMarginVaultUpgradeable",
+      "runtimeBytes": 7995,
+      "eip170HeadroomBytes": 16581,
+      "runtimeCodeHash": "0x7b311305f3c0a7c9fd06b92b12a97837c81544e304248d4f564434ac6d09d985",
+      "artifactSha256": "0d88d8270bfd7e1054a18b30a9e5d001fca316fb76ac97bbc0c944bc676c877e",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220dae2f138283e7471966a79b7e72682e2de38da07cb02bac69f375e40a0730ad464736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220be38680ab781e4e19a471672ef560fc4ed760f26bd7c7bba5fe67f6322decc4664736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "marginVaultAdmin": {
+      "address": "0xad132dbd3da0b409ef3cb2522e758283fc6125bd",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "insuranceFund": {
+      "address": "0x17c72B8f171999C4d8863a3517D1C5d9cBfBb068",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0xd5e494f8f7084161b4ef709922e77380b700b331a7f68c355b9adb10f081c3a0",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "insuranceFundImplementation": {
+      "address": "0x568185fc33d05040b60d8432b9988aa82f071fe6",
+      "contract": "MarginInsuranceFundUpgradeable",
+      "runtimeBytes": 2068,
+      "eip170HeadroomBytes": 22508,
+      "runtimeCodeHash": "0x1f293ccb84d019cc2574c616d58deee7079a6d804c7e96a90b4272ac8a6dba5e",
+      "artifactSha256": "0200dadf1ab240fcc9be46d5ce415206dcdc656344274392e62641d2d3d8fe7e",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220a5c972fb7c927ea9b52b2386b8457d9fbed1dbcde09300ced62e747cbeb47f7864736f6c634300081a0033",
+      "compiledCborMetadata": "a26469706673582212207d7cd1c7fbb0792e804306c939598c1de5fbd22bb2203ca14cbe7fb454df06fa64736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "insuranceFundAdmin": {
+      "address": "0x9ee6c76888b25eacf969dd695bdbba75d5bd57df",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "feeDistributor": {
+      "address": "0x8D2707946A9d7abce3d8fb3FafDc40f4811180b7",
+      "contract": "PeridotTransparentProxy",
+      "runtimeBytes": 784,
+      "eip170HeadroomBytes": 23792,
+      "runtimeCodeHash": "0xcc6da3c1255f5b23bcd801904e0b418117156c7bce039f21935b88f8da02d5f3",
+      "artifactSha256": "b1b15a24989e7696b532fa945e811155af6520f49f8051d6f072835e6feae0bf",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220c614ead93b29c06a51d48a5f4393b144affeb816fc7a2fcc7371fab34761fbbe64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 7,
+          "length": 32
+        }
+      ]
+    },
+    "feeDistributorImplementation": {
+      "address": "0x371e8637082232013d1634e556dbc14cd6d1d094",
+      "contract": "MarginFeeDistributorUpgradeable",
+      "runtimeBytes": 6595,
+      "eip170HeadroomBytes": 17981,
+      "runtimeCodeHash": "0x33db0557243a3741ffe694380a299606c48f4d016e95d0096ccf58079b34b355",
+      "artifactSha256": "94705c3c7d566508870de163a8da1e62a352069ce93ea7d1f27c52566614157d",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a26469706673582212209aa25c39e78053fe0e66c273f0ebbcedc480cc8fc4c93d473dea22d319f163a464736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220bab1e955faab806da45d72877ff45475c78ab003540e4aa32aeee2f30db03b6664736f6c634300081a0033",
+      "immutableRanges": []
+    },
+    "feeDistributorAdmin": {
+      "address": "0xaa909e7c0d239914a33f2efe8d47b1e66c18675e",
+      "contract": "ProxyAdmin",
+      "runtimeBytes": 874,
+      "eip170HeadroomBytes": 23702,
+      "runtimeCodeHash": "0xa3ac6468747c1017cfaecfc1e8cca44f0ec726609e9eff4ea9e1e6c72430ba6b",
+      "artifactSha256": "f5bd88338c5d97ae6e93433a9edf6afc81a777c0f27dde945bf071efa106d31b",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122088a4bb87b19cb29209e47abd43e6b63e6e295b20ce06923000be066a3d3e864964736f6c634300081a0033",
+      "immutableRanges": [],
+      "owner": "0x6797fb8ce049b42c5bc2b42bf76c6d15c7b12498"
+    },
+    "replacementDelegate": {
+      "address": "0x31d7c960c1eb542e4243e80d2270220e63002d99",
+      "contract": "RobinhoodBoostedDelegate",
+      "runtimeBytes": 24511,
+      "eip170HeadroomBytes": 65,
+      "runtimeCodeHash": "0xa6913bd52087e56926b3f17fd131b7f331af194aaa77321e452582e75fb8cc34",
+      "artifactSha256": "50461f820d23df5c4d2e9fecaec5e537d90619104b68e7f45fa90cc6f8cc5add",
+      "artifactMatchExcludingImmutables": true,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a2646970667358221220724c147e5a44c3170fded654fb9c3be7b858bebab585334fc4535428a2aecb1964736f6c634300081a0033",
+      "compiledCborMetadata": "a2646970667358221220724c147e5a44c3170fded654fb9c3be7b858bebab585334fc4535428a2aecb1964736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 8675,
+          "length": 32
+        },
+        {
+          "start": 16511,
+          "length": 32
+        },
+        {
+          "start": 17717,
+          "length": 32
+        },
+        {
+          "start": 20415,
+          "length": 32
+        }
+      ]
+    },
+    "borrowAccountingModule": {
+      "address": "0xf7d90127352748d5437be445c01b46892baf5522",
+      "contract": "BorrowAccountingModule",
+      "runtimeBytes": 2752,
+      "eip170HeadroomBytes": 21824,
+      "runtimeCodeHash": "0x353dbb2787e2a41e429ebf1a20253735becb84354d38536b1102863143ef1968",
+      "artifactSha256": "94f1ae0ac1b81301b174d2a9c8723c386d41423e75050772c525975d34884432",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a26469706673582212205ccf88525a755e728dee7e20ddfb0fa52af97aab50283ed34a374b45d7ef22f764736f6c634300081a0033",
+      "compiledCborMetadata": "a26469706673582212202bf1cf30f8a32f6204a301f3653178fae41b442d50fa2200cf1f31950935c05e64736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 108,
+          "length": 32
+        },
+        {
+          "start": 639,
+          "length": 32
+        }
+      ]
+    },
+    "accountTemplate": {
+      "address": "0xab543100a65e82e8e0a84cd062500ec0649b7423",
+      "contract": "IsolatedMarginAccount",
+      "runtimeBytes": 5272,
+      "eip170HeadroomBytes": 19304,
+      "runtimeCodeHash": "0xf5f3b8e3faf11027e44799bd6fcf8afc61a2f8297cb84a5544a8f0bfa87c2f63",
+      "artifactSha256": "3ed28320341d909cb7b5f4e54a65e8825953f03f3782badcc25a20423e28ebd8",
+      "artifactMatchExcludingImmutables": false,
+      "executableMatchExcludingImmutablesAndCborMetadata": true,
+      "deployedCborMetadata": "a26469706673582212206da5aac3c89745e84589592422419d7eba06fcc0d4b683d7bafdd6feed24313464736f6c634300081a0033",
+      "compiledCborMetadata": "a264697066735822122008c13f3ee25f77cc97c945adb072848be002e82b43e51fb2eb721e0963fb58d764736f6c634300081a0033",
+      "immutableRanges": [
+        {
+          "start": 431,
+          "length": 32
+        },
+        {
+          "start": 1546,
+          "length": 32
+        }
+      ]
+    }
+  },
+  "wiring": {
+    "guardedSource.guard": "0xae4d4ddb8dd646951d54fe9b13be23dcb61c6741",
+    "guardedSource.lendingSource": "0x266f014d1325774f1190f963df4369e07dda1d33",
+    "guardedSource.stock": "0xd0601ce157db5bdc3162bbac2a2c8af5320d9eec",
+    "guardedSource.usd": "0x5fc5360d0400a0fd4f2af552add042d716f1d168",
+    "router.manager": "0xa2a022b17e0201894937755584eecc878aefe1bf",
+    "router.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "router.permit2": "0x000000000022d473030f116ddee9f6b43ac78ba3",
+    "router.router": "0x8876789976decbfcbbbe364623c63652db8c0904",
+    "oracle.assetSource": "0x25e02b142e0785a59d85a6ca820c400e601a9e8e",
+    "oracle.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "flashVault.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "quoter.config": "0x09f94fe0b79e000c8a26617c63e3427fdecb528b",
+    "quoter.flashLender": "0x79d33c9bbc1d0711e88c5602f86135ab4c088b06",
+    "quoter.oracle": "0x63150eb3ddf71420da0b09b66838aab398f7dedd",
+    "swapModule.config": "0x09f94fe0b79e000c8a26617c63e3427fdecb528b",
+    "swapModule.quoter": "0xed3c353ab237329bd53cc7eb24e66b370155fe6e",
+    "accountFactory.configurator": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "accountFactory.executor": "0x6a45ae86bd992d250580d08d340a06a04d478977",
+    "accountFactory.implementation": "0xab543100a65e82e8e0a84cd062500ec0649b7423",
+    "config.flashLoanProvider": "0x79d33c9bbc1d0711e88c5602f86135ab4c088b06",
+    "config.insuranceFund": "0x17c72b8f171999c4d8863a3517d1c5d9cbfbb068",
+    "config.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "config.routerAdapter": "0xa32c34f100b4f1f36eca09c427a098f99f4423f0",
+    "config.treasury": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "executor.accountFactory": "0x88bdf12f3b6b5c11bd0ed5c117181fea3130d15c",
+    "executor.config": "0x09f94fe0b79e000c8a26617c63e3427fdecb528b",
+    "executor.feeDistributor": "0x8d2707946a9d7abce3d8fb3fafdc40f4811180b7",
+    "executor.quoter": "0xed3c353ab237329bd53cc7eb24e66b370155fe6e",
+    "executor.riskEngine": "0xc8b178c3c74570472ff1eee0dd559e61af9f9678",
+    "executor.swapModule": "0xa2a022b17e0201894937755584eecc878aefe1bf",
+    "executor.vault": "0x04d4a5555b7a37017a67b4d21a1da5838de28b9e",
+    "liquidator.config": "0x09f94fe0b79e000c8a26617c63e3427fdecb528b",
+    "liquidator.executor": "0x6a45ae86bd992d250580d08d340a06a04d478977",
+    "liquidator.insuranceFund": "0x17c72b8f171999c4d8863a3517d1c5d9cbfbb068",
+    "liquidator.quoter": "0xed3c353ab237329bd53cc7eb24e66b370155fe6e",
+    "liquidator.riskEngine": "0xc8b178c3c74570472ff1eee0dd559e61af9f9678",
+    "liquidator.swapModule": "0xa2a022b17e0201894937755584eecc878aefe1bf",
+    "liquidator.vault": "0x04d4a5555b7a37017a67b4d21a1da5838de28b9e",
+    "riskEngine.config": "0x09f94fe0b79e000c8a26617c63e3427fdecb528b",
+    "riskEngine.controller": "0x6148183676e304dbe63a85c350c208da3ceac39c",
+    "riskEngine.executor": "0x6a45ae86bd992d250580d08d340a06a04d478977",
+    "riskEngine.liquidator": "0x1434cda56d0aeac4d5abc16f91ca76a8a989083c",
+    "riskEngine.oracle": "0x63150eb3ddf71420da0b09b66838aab398f7dedd",
+    "riskEngine.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "marginVault.executor": "0x6a45ae86bd992d250580d08d340a06a04d478977",
+    "marginVault.feeDistributor": "0x8d2707946a9d7abce3d8fb3fafdc40f4811180b7",
+    "marginVault.liquidator": "0x1434cda56d0aeac4d5abc16f91ca76a8a989083c",
+    "marginVault.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "insuranceFund.liquidator": "0x1434cda56d0aeac4d5abc16f91ca76a8a989083c",
+    "insuranceFund.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "feeDistributor.config": "0x09f94fe0b79e000c8a26617c63e3427fdecb528b",
+    "feeDistributor.owner": "0x94696d767e65a75581145646960fa0ec886ce5d2",
+    "feeDistributor.vault": "0x04d4a5555b7a37017a67b4d21a1da5838de28b9e"
+  },
+  "status": "passed",
+  "exactCanaryRiskBothDirections": [
+    1,
+    200,
+    5000,
+    2500,
+    12500,
+    5000,
+    5000,
+    500,
+    100,
+    100,
+    2000000000000000000,
+    1000000000000000000
+  ],
+  "zeroDebtAndBorrowShares": true,
+  "zeroFreeAndLockedMargin": true,
+  "opensAndFlashPaused": false
+}

@@ -1,0 +1,20 @@
+{
+  "files": {
+    "margin-mainnet/keeper-service/service.py": "a76023983cd3209dbf21d0330edd24de92d66ddf7071748ef11ec97f99e98810",
+    "margin-mainnet/five-x/update.py": "5f25b926f24d766b4edcdb1c85c15b7594c9dcb835d65d11bd2f08abaa0715fb",
+    "margin-mainnet/tools/rpc.py": "25474f754637737baeca753f3c13f466bac515a940ee56aa5130a22ea344267d",
+    "margin-mainnet/tools/keeper.py": "5adbf07742947e2e3096894719442d79b65f067d90b5d38235f5eabf4e9b8dd7",
+    "margin-mainnet/tools/deploy_live.py": "227ed81856de7df87042606e469871d739d3e661dfddc9d73a87c7ddeb8bc184",
+    "margin-mainnet/tools/preflight.py": "d7d453550f0b927fdaad6873c7611f40b6a8bac167f4b39f51123488e173572d",
+    "margin-mainnet/tools/borrower_history.py": "12341ce020e77b889bf91a95c1eb33009ec1b96c3282812fdbdab586119bb554",
+    "margin-mainnet/tools/verify_local.py": "138be848d51db2b174af00a276d8e79d16fc9fdc3262d2bd4025ad3086211b2c",
+    "deployments/margin-mainnet-live/addresses.json": "43c333b77b1f9174e254c4cdbbe75761170abb62b42544cd574b3663dc0b2aec",
+    "deployments/margin-mainnet-live/active-verification.json": "2b5337a7d9ba826a92d6d045643ae65647765ec27959049e64c967f6bfb3c210",
+    "infra/app-platform/journal.py": "b7472161a59e5bbfebbc4cef676d4c3208355ea44ba7f73e09065f86b7340a35",
+    "infra/app-platform/worker.py": "95130efe1d4e1fd9235e4b9439ee1d91ae656efe21f42fabab6f4ea23e06b442",
+    "infra/app-platform/Dockerfile": "0879a44557c0131a156cdfde06cc1d645f295e38974f8df0909e5a9376ee897d",
+    "infra/app-platform/requirements.txt": "d2344076593c14357a86869580f2ff4930051813c887c6c3d5248ff81b3ffe33"
+  },
+  "containsWalletSecrets": false,
+  "initialMode": "monitor-only"
+}
