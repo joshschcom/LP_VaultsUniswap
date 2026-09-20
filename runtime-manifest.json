@@ -11,7 +11,7 @@
     "deployments/margin-mainnet-live/addresses.json": "43c333b77b1f9174e254c4cdbbe75761170abb62b42544cd574b3663dc0b2aec",
     "deployments/margin-mainnet-live/active-verification.json": "2b5337a7d9ba826a92d6d045643ae65647765ec27959049e64c967f6bfb3c210",
     "infra/app-platform/journal.py": "b7472161a59e5bbfebbc4cef676d4c3208355ea44ba7f73e09065f86b7340a35",
-    "infra/app-platform/worker.py": "95130efe1d4e1fd9235e4b9439ee1d91ae656efe21f42fabab6f4ea23e06b442",
+    "infra/app-platform/worker.py": "4963c8713ff570921da8489544531db07baccf24cb774e8228f4d6740f3a4ad0",
     "infra/app-platform/Dockerfile": "0879a44557c0131a156cdfde06cc1d645f295e38974f8df0909e5a9376ee897d",
     "infra/app-platform/requirements.txt": "d2344076593c14357a86869580f2ff4930051813c887c6c3d5248ff81b3ffe33"
   },

@@ -80,8 +80,9 @@ def main():
     signal.signal(signal.SIGINT, stop)
     execute = os.environ.get('EXECUTE', 'false') == 'true'
     expected_id = os.environ.get('JOURNAL_ID') or None
-    if execute and not expected_id:
-        raise RuntimeError('Execution requires JOURNAL_ID from the verified monitor')
+    database_url = os.environ.get('DATABASE_URL')
+    if execute and not (expected_id and database_url):
+        raise RuntimeError('Execution requires a durable database and verified JOURNAL_ID')
     sys.path.insert(0, str(ROOT / 'margin-mainnet/five-x'))
     from update import verify_code
     verify_code()
@@ -89,9 +90,9 @@ def main():
     journal = None
     # Rolling deployments can overlap. The replacement reports standby until
     # the prior worker exits; it must not read stale state before acquiring.
-    while not STOP and journal is None:
+    while database_url and not STOP and journal is None:
         try:
-            journal = Journal(os.environ['DATABASE_URL'], expected_id, initialize=not execute)
+            journal = Journal(database_url, expected_id, initialize=not execute)
         except Busy:
             emit('standby', executionEnabled=False)
             time.sleep(5)
@@ -102,20 +103,24 @@ def main():
         with tempfile.TemporaryDirectory(prefix='margin-keeper-') as directory:
             state = Path(directory) / 'state'
             state.mkdir()
-            journal.hydrate(state, local_persist)
-            keeper.persist = lambda path, body: journal.persist(path, body, local_persist)
+            if journal:
+                journal.hydrate(state, local_persist)
+                keeper.persist = lambda path, body: journal.persist(path, body, local_persist)
             keystore, password_file = prepare_signer(directory) if execute else (None, None)
             backend = CloudBackend(service.RPC, json.loads((ROOT / 'deployments/margin-mainnet-live/addresses.json').read_text()), state, password_file)
             backend.journal = journal
             backend.keystore = keystore
-            emit('journal_ready', journalId=journal.id, recoveredJournals=len(list(state.glob('position-*.json'))), executionEnabled=execute)
+            journal_id = journal.id if journal else None
+            emit('journal_ready' if journal else 'monitor_only_no_database', journalId=journal_id,
+                 recoveredJournals=len(list(state.glob('position-*.json'))), executionEnabled=execute)
             while not STOP:
-                journal.check()
+                if journal:
+                    journal.check()
                 result = service.cycle(backend, state, execute, max_positions=100)
                 # No raw exceptions, connection strings, transaction bodies or
                 # credentials in centralized application logs.
                 emit(result['status'], executionEnabled=execute, sender=service.GOVERNOR,
-                     journalId=journal.id, positions=[{'positionId': p['positionId'], 'status': p['status']} for p in result['positions']])
+                     journalId=journal_id, positions=[{'positionId': p['positionId'], 'status': p['status']} for p in result['positions']])
                 if result['status'] == 'operator_attention':
                     raise RuntimeError('Keeper requires journal reconciliation')
                 for _ in range(15):
@@ -124,7 +129,8 @@ def main():
                     time.sleep(1)
     finally:
         keeper.persist = local_persist
-        journal.close()
+        if journal:
+            journal.close()
 
 
 if __name__ == '__main__':
