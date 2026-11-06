@@ -17,7 +17,7 @@ import keeper
 from journal import Journal, Busy
 
 STOP = False
-KEEPER = '0x16aEC17597E5224998e2043C9c83C4a35dD95A86'
+KEEPER = '0x1976117e9EA3FEC9fb82aBef12fcB95fFc9A3cf7'
 
 
 def stop(*_):
