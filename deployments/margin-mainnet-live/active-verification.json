@@ -267,11 +267,11 @@
       ]
     },
     "executorImplementation": {
-      "address": "0xd44a1d425cfa875efc0263c0cf717840c213fbd8",
+      "address": "0x0446bD112312D4CD9c33c198693D63C0DC665338",
       "contract": "IsolatedMarginExecutorUpgradeable",
       "runtimeBytes": 21254,
       "eip170HeadroomBytes": 3322,
-      "runtimeCodeHash": "0xbaa445e0c3c41eb97f9929a3e4b2e7d8764a6755330f079add25c3943812707b",
+      "runtimeCodeHash": "0xfbdc28ad99e6732962d673fea94789a9025a2bcc5e2e812378679aa74207989a",
       "artifactSha256": "c1b447b940104590b16aa183cff7bfbe3fd03ebc0244bb70d6bc40a7fad6ec2f",
       "artifactMatchExcludingImmutables": true,
       "executableMatchExcludingImmutablesAndCborMetadata": true,
@@ -312,11 +312,11 @@
       ]
     },
     "liquidatorImplementation": {
-      "address": "0x868dbcb39fea9060272504e0636a1e068a13e3a2",
+      "address": "0xB2Ba238E317C14c3C187DA6c2647343B3A268baD",
       "contract": "IsolatedMarginLiquidatorUpgradeable",
       "runtimeBytes": 12815,
       "eip170HeadroomBytes": 11761,
-      "runtimeCodeHash": "0x8188387f51547a8fc805c9929455695928a6d6461a87c85ea659eea447982066",
+      "runtimeCodeHash": "0x6890d50d982aef4ff87338aec5d2454ca6f5a3b8e9a6eff98e27c3e65abcdb02",
       "artifactSha256": "a4e1fab2e39b412d3d74df18335c4eef8fadd9eeca6fc9032f614bf32998e854",
       "artifactMatchExcludingImmutables": true,
       "executableMatchExcludingImmutablesAndCborMetadata": true,
@@ -357,11 +357,11 @@
       ]
     },
     "riskEngineImplementation": {
-      "address": "0x6408136abd8182fdc3becaf0f7dea2163baa1676",
+      "address": "0x3db186702f7dE23cCeAFfD5AABfbd5f3A9FC40Cf",
       "contract": "IsolatedMarginRiskEngineUpgradeable",
       "runtimeBytes": 14665,
       "eip170HeadroomBytes": 9911,
-      "runtimeCodeHash": "0x7277003001607079f29ae68b6624be818ee2300f21c42b4059262f19967b24fa",
+      "runtimeCodeHash": "0xdeaaa1c2128affaecdb7188b2d4450a521fb3d4959e5970977d682c63bb09f32",
       "artifactSha256": "0f18be74f6da89460fd00edd45816c7cc2eab110ab8be3707283093053b22fc3",
       "artifactMatchExcludingImmutables": false,
       "executableMatchExcludingImmutablesAndCborMetadata": true,
