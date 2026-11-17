@@ -64,7 +64,9 @@ class CloudBackend(keeper.RpcBackend):
         super().__init__(url, addresses, KEEPER)
         self.state = Path(state)
         self.password_file = password_file
-        self.max_gas = 8_000_000
+        # The gas limit is 3x eth_estimateGas. A SPY long liquidation estimates ~2.82M (used 2.22M, fork
+        # 2026-11-17), i.e. 8.47M, above the former 8M cap; NVDA estimates ~2.46M (7.37M). 12M keeps 3x for both.
+        self.max_gas = 12_000_000
         self.gas_price = 100_000_000
         self.position_id = None
 

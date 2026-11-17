@@ -30,7 +30,7 @@ class SignedBackend(RpcBackend):
             raise ValueError('Wrong mainnet deployment')
         super().__init__(url,addresses,GOVERNOR)
         self.state=Path(state);self.password_file=password_file;self.local_unlocked=local_unlocked
-        self.max_gas=8_000_000;self.gas_price=100_000_000 # 0.1 gwei; <=0.0008 ETH per call.
+        self.max_gas=12_000_000;self.gas_price=100_000_000 # 0.1 gwei; <=0.0012 ETH per call. 3x a ~2.82M SPY liquidation estimate.
         self.position_id=None
 
     def simulate(self,position_id):
