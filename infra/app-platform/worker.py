@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'margin-mainnet/keeper-service'))
 import service
 import keeper
+import lending
 from journal import Journal, Busy
 
 STOP = False
@@ -125,6 +126,76 @@ class CloudBackend(keeper.RpcBackend):
         return receipt
 
 
+class CloudLendingSigner:
+    """Signing side of lending.py: one fixed target (the pinned SpyCollateralLiquidator), calldata rebuilt from the
+    durable intent, the same nonce / durable-intent / receipt identity rules as the margin path."""
+
+    def __init__(self, margin_backend, lending_backend):
+        self.m, self.l = margin_backend, lending_backend
+
+    def nonce(self):
+        return self.m.nonce()
+
+    def submit(self, transaction, nonce, journal_id, account, repay):
+        expected = self.l.transaction(account, repay)
+        if (transaction['from'].lower() != KEEPER.lower()
+                or transaction['to'].lower() != self.l.c['liquidator'].lower()
+                or transaction['data'].lower() != expected['data'].lower()
+                or int(transaction.get('value', '0x0'), 16) != 0
+                or not 0 < int(transaction['gas'], 16) <= self.m.max_gas):
+            raise ValueError('Transaction violates the lending liquidation policy')
+        if self.m.nonce() != nonce:
+            raise RuntimeError('Signer nonce changed')
+        self.m.journal.before_send(journal_id, nonce, transaction)
+        result = subprocess.run(['cast', 'send', '--rpc-url', self.m.url,
+                                 '--keystore', self.m.keystore, '--password-file', self.m.password_file,
+                                 '--from', KEEPER, '--nonce', str(nonce),
+                                 '--gas-limit', str(int(transaction['gas'], 16)),
+                                 '--gas-price', str(self.m.gas_price), '--priority-gas-price', '0',
+                                 '--async', self.l.c['liquidator'], '--data', transaction['data']],
+                                capture_output=True, text=True, timeout=90)
+        hashes = re.findall(r'0x[0-9a-fA-F]{64}', result.stdout)
+        if result.returncode or len(hashes) != 1:
+            raise RuntimeError('Ambiguous cast submission; reconcile the durable intent')
+        return hashes[0]
+
+    def receipt(self, tx_hash, journal_id):
+        receipt = service.rpc('eth_getTransactionReceipt', [tx_hash], self.m.url)
+        if receipt is None:
+            return None
+        journal = json.loads((self.m.state / ('position-%s.json' % journal_id)).read_text())
+        attempts = [a for a in journal['attempts'] if a.get('hash') == tx_hash]
+        if len(attempts) != 1:
+            raise RuntimeError('Receipt is not bound to one persisted attempt')
+        attempt = attempts[0]
+        sent = service.rpc('eth_getTransactionByHash', [tx_hash], self.m.url)
+        if (not sent or sent['from'].lower() != KEEPER.lower()
+                or sent['to'].lower() != self.l.c['liquidator'].lower()
+                or sent['input'].lower() != attempt['transaction']['data'].lower()
+                or int(sent['nonce'], 16) != attempt['nonce']
+                or int(sent['value'], 16) != 0 or int(sent['chainId'], 16) != 4663):
+            raise RuntimeError('Receipt transaction identity mismatch')
+        block = service.rpc('eth_getBlockByNumber', [receipt['blockNumber'], False], self.m.url)
+        if block['hash'] != receipt['blockHash']:
+            raise RuntimeError('Receipt block no longer canonical')
+        if int(service.rpc('eth_blockNumber', [], self.m.url), 16) < int(receipt['blockNumber'], 16) + 1:
+            return None
+        return receipt
+
+
+def lending_setup(url):
+    """(LendingBackend, None) when enabled and every pin matches; (None, reason) otherwise. Never raises."""
+    if os.environ.get('LENDING_LIQUIDATIONS', 'false') != 'true':
+        return None, 'disabled'
+    try:
+        config = lending.load_config()
+        if config is None:
+            return None, 'no_config'
+        return lending.LendingBackend(url, config, KEEPER), None
+    except Exception as error:
+        return None, type(error).__name__
+
+
 def main():
     os.umask(0o077)
     signal.signal(signal.SIGTERM, stop)
@@ -164,6 +235,9 @@ def main():
             backend.journal = journal
             backend.keystore = keystore
             journal_id = journal.id if journal else None
+            lending_backend, lending_reason = lending_setup(service.RPC)
+            lending_signer = CloudLendingSigner(backend, lending_backend) if lending_backend else None
+            emit('lending_ready' if lending_backend else 'lending_off', reason=lending_reason, executionEnabled=execute)
             emit('journal_ready' if journal else 'monitor_only_no_database', journalId=journal_id,
                  recoveredJournals=len(list(state.glob('position-*.json'))), executionEnabled=execute)
             while not STOP:
@@ -173,14 +247,22 @@ def main():
                 # maximum-budget call; a later drain also prevents a new intent.
                 balance = int(service.rpc('eth_getBalance', [KEEPER, 'latest']), 16)
                 funded = balance >= backend.max_gas * backend.gas_price
-                result = service.cycle(backend, state, execute and funded, max_positions=100)
+                # A lending send still awaiting its receipt holds the shared nonce: margin only monitors meanwhile.
+                lending_pending = bool(lending_backend and lending.unresolved(state))
+                result = service.cycle(backend, state, execute and funded and not lending_pending, max_positions=100)
+                lending_result = {'status': 'off'}
+                if lending_backend and result['status'] in ('monitoring', 'degraded_oracle'):
+                    lending_result = lending.cycle(lending_backend, lending_signer, state, execute and funded)
+                    if lending_result['status'] == 'operator_attention':
+                        result['status'] = 'operator_attention'
                 if execute and not funded and result['status'] not in ('operator_attention', 'waiting_receipt'):
                     result['status'] = 'awaiting_gas'
                 # No raw exceptions, connection strings, transaction bodies or
                 # credentials in centralized application logs.
                 emit(result['status'], executionEnabled=execute, sender=KEEPER,
                      gasBalanceWei=str(balance), gasReady=funded,
-                     journalId=journal_id, positions=[{'positionId': p['positionId'], 'status': p['status']} for p in result['positions']])
+                     journalId=journal_id, positions=[{'positionId': p['positionId'], 'status': p['status']} for p in result['positions']],
+                     lending=lending_result['status'], lendingAccounts=[a['status'] for a in lending_result.get('accounts', [])])
                 if result['status'] == 'operator_attention':
                     raise RuntimeError('Keeper requires journal reconciliation')
                 for _ in range(15):

@@ -77,10 +77,14 @@ class SignedBackend(RpcBackend):
         return receipt
 
 
+LENDING_ID_BASE=10**12 # lending.py journals share the table; margin never reads them
+
+
 def unresolved(state):
     pending=[]
     for path in Path(state).glob('position-*.json'):
         j=json.loads(path.read_text())
+        if j['positionId']>=LENDING_ID_BASE: continue
         if j['attempts'] and j['attempts'][-1]['state']!='confirmed': pending.append(j['positionId'])
     return sorted(pending)
 
