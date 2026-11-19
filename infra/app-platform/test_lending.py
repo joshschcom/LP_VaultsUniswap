@@ -87,7 +87,8 @@ class LendingTests(unittest.TestCase):
 
     def test_healthy_margin_and_empty_accounts_skip(self):
         for sn, status in [(snap(shortfall=0), 'healthy'), (snap(margin=True), 'not_applicable'),
-                           (snap(tokens=0), 'not_applicable'), (snap(debt=0), 'not_applicable'),
+                           (snap(tokens=0), 'not_applicable'), (snap(debt=0, shortfall=0), 'healthy'),
+                           (snap(debt=0), 'unsupported_debt_shortfall'),
                            (snap(err=4), 'liquidity_error')]:
             r = lending.run(FakeBackend([sn]), FakeSigner(), 1, ALICE, self.state, execute=True)
             self.assertEqual(r['status'], status)
@@ -142,6 +143,12 @@ class LendingTests(unittest.TestCase):
     def test_spy_closed_cycle_status(self):
         r = lending.cycle(FakeBackend([snap(err=lending.SNAPSHOT_ERROR)]), FakeSigner(), self.state, True)
         self.assertEqual(r['status'], 'spy_closed')
+
+    def test_unsupported_debt_is_reported_not_sent(self):
+        s = FakeSigner()
+        r = lending.cycle(FakeBackend([snap(debt=0)]), s, self.state, True)
+        self.assertEqual(r['status'], 'lending_unsupported_shortfall')
+        self.assertEqual(s.sent, [])
 
     def test_margin_ignores_lending_journals(self):
         path = lending.journal_path(self.state, 3)

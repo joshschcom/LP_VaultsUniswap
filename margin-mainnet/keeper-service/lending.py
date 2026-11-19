@@ -173,7 +173,7 @@ def run(backend, signer, index, account, state, execute=False, max_calls=4):
         keeper.persist(path, journal)
     for _ in range(max_calls):
         snap = backend.snapshot(account)
-        if snap['margin'] or snap['pSpy'] == 0 or snap['debt'] == 0:
+        if snap['margin'] or snap['pSpy'] == 0:
             return {'status': 'not_applicable', 'snapshot': snap}
         if snap['err'] == SNAPSHOT_ERROR:
             return {'status': 'spy_closed_or_stale', 'snapshot': snap}
@@ -181,6 +181,10 @@ def run(backend, signer, index, account, state, execute=False, max_calls=4):
             return {'status': 'liquidity_error', 'snapshot': snap}
         if snap['shortfall'] == 0:
             return {'status': 'healthy', 'snapshot': snap}
+        if snap['debt'] == 0:
+            # Shortfall from debt in another market (e.g. NVDA borrowed against pSPY): the liquidator repays pUSDG
+            # only. Reported, never sent.
+            return {'status': 'unsupported_debt_shortfall', 'snapshot': snap}
         repay = backend.repay_amount(snap)
         if repay == 0:
             return {'status': 'not_executable_stop', 'reason': 'zero repay', 'snapshot': snap}
@@ -251,5 +255,7 @@ def cycle(backend, signer, state, execute=False, max_accounts=200):
             return {'status': 'waiting_receipt', 'accounts': results}
         if result['status'] in STOP_STATES:
             return {'status': 'operator_attention', 'accounts': results}
-    status = 'lending_degraded' if degraded else ('spy_closed' if closed else 'monitoring')
+    unsupported = any(r['status'] == 'unsupported_debt_shortfall' for r in results)
+    status = ('lending_degraded' if degraded else 'lending_unsupported_shortfall' if unsupported
+              else 'spy_closed' if closed else 'monitoring')
     return {'status': status, 'accounts': results}
