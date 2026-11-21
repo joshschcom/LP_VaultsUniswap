@@ -136,8 +136,8 @@ class CloudLendingSigner:
     def nonce(self):
         return self.m.nonce()
 
-    def submit(self, transaction, nonce, journal_id, account, repay):
-        expected = self.l.transaction(account, repay)
+    def submit(self, transaction, nonce, journal_id, account, plan):
+        expected = self.l.transaction(account, plan)
         if (transaction['from'].lower() != KEEPER.lower()
                 or transaction['to'].lower() != self.l.c['liquidator'].lower()
                 or transaction['data'].lower() != expected['data'].lower()

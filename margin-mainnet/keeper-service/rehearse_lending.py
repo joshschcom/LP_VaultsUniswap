@@ -25,7 +25,7 @@ class LoopbackSigner:
     def nonce(self):
         return int(rpc('eth_getTransactionCount', [self.sender, 'latest'], self.url), 16)
 
-    def submit(self, tx, nonce, journal_id, account, repay):
+    def submit(self, tx, nonce, journal_id, account, plan):
         body = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': 'eth_sendTransaction',
                            'params': [dict(tx, nonce=hex(nonce), value='0x0')]}).encode()
         req = urllib.request.Request(self.url, body, headers={'Content-Type': 'application/json'})
@@ -64,7 +64,7 @@ def main():
                 r = rpc('eth_getTransactionReceipt', [at['hash']], a.rpc_url)
                 at['gasUsed'] = int(r['gasUsed'], 16) if r else None
         result.setdefault('journals', []).append({'positionId': j['positionId'], 'account': j['account'],
-                                                  'attempts': [{k: at.get(k) for k in ('state', 'repay', 'beforeDebt', 'afterDebt', 'gasUsed')} for at in j['attempts']]})
+                                                  'attempts': [{k: at.get(k) for k in ('state', 'plan', 'beforeDebt', 'afterDebt', 'gasUsed')} for at in j['attempts']]})
     print(json.dumps(result, indent=1, default=str))
 
 

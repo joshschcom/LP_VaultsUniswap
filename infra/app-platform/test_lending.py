@@ -22,12 +22,13 @@ ALICE = '0x00000000000000000000000000000000000000a1'
 CONFIG = {'chainId': 4663, 'controller': '0x6148183676E304dbe63a85C350c208DA3cEAc39C',
           'pUSDG': '0x55aEd0569c8f0D166D71facE57B57C2f2624a563', 'pSPY': PSPY, 'liquidator': LIQ,
           'liquidatorRuntimeHash': '0x' + '11' * 32, 'delegate': '0x' + 'cc' * 20,
-          'delegateRuntimeHash': '0x' + '22' * 32, 'fromBlock': 100, 'maxRepayUsdg': 100_000_000}
+          'delegateRuntimeHash': '0x' + '22' * 32, 'fromBlock': 100, 'maxRepayUsdg': 100_000_000,
+          'pNVDA': '0xa155ccCB986774AE818b3F10F07d01D1b7A47b26', 'maxRepayNvda': 10**18}
 
 
-def snap(err=0, shortfall=10, debt=40_000_000, tokens=5 * 10**8, margin=False):
+def snap(err=0, shortfall=10, debt=40_000_000, tokens=5 * 10**8, margin=False, nvda=0):
     return {'account': ALICE, 'err': err, 'liquidity': 0, 'shortfall': shortfall, 'margin': margin,
-            'pSpy': tokens, 'debt': debt, 'block': 1}
+            'pSpy': tokens, 'debt': debt, 'nvdaDebt': nvda, 'block': 1}
 
 
 class FakeBackend(lending.LendingBackend):
@@ -42,15 +43,18 @@ class FakeBackend(lending.LendingBackend):
     def snapshot(self, account):
         return self.snaps.pop(0) if len(self.snaps) > 1 else self.snaps[0]
 
-    def repay_amount(self, s):
-        return 20_000_000
+    def plan(self, s):
+        if s['debt']:
+            return {'kind': 'usdg', 'repay': 20_000_000, 'debtKey': 'debt'}
+        return {'kind': 'nvda', 'maxRepay': 10**17, 'usdgIn': 12_000_000, 'debtKey': 'nvdaDebt'}
 
-    def transaction(self, account, repay):
-        return {'from': self.sender, 'to': LIQ, 'data': '0xabcd%040x%064x' % (int(account, 16), repay)}
+    def transaction(self, account, plan):
+        v = plan.get('repay') or plan['maxRepay']
+        return {'from': self.sender, 'to': LIQ, 'data': '0xabcd%040x%064x' % (int(account, 16), v)}
 
-    def simulate(self, account, repay):
-        self.simulated.append((account, repay))
-        return dict(self.transaction(account, repay), gas=hex(3_000_000))
+    def simulate(self, account, plan):
+        self.simulated.append((account, plan))
+        return dict(self.transaction(account, plan), gas=hex(3_000_000))
 
 
 class FakeSigner:
@@ -60,7 +64,7 @@ class FakeSigner:
     def nonce(self):
         return 7
 
-    def submit(self, tx, nonce, jid, account, repay):
+    def submit(self, tx, nonce, jid, account, plan):
         if self.fail:
             raise RuntimeError('boom')
         self.sent.append((tx, nonce, jid))
@@ -87,10 +91,11 @@ class LendingTests(unittest.TestCase):
 
     def test_healthy_margin_and_empty_accounts_skip(self):
         for sn, status in [(snap(shortfall=0), 'healthy'), (snap(margin=True), 'not_applicable'),
+                           (snap(debt=0, nvda=10**17), 'executable_plan'),
                            (snap(tokens=0), 'not_applicable'), (snap(debt=0, shortfall=0), 'healthy'),
                            (snap(debt=0), 'unsupported_debt_shortfall'),
                            (snap(err=4), 'liquidity_error')]:
-            r = lending.run(FakeBackend([sn]), FakeSigner(), 1, ALICE, self.state, execute=True)
+            r = lending.run(FakeBackend([sn]), FakeSigner(), 1, ALICE, self.state, execute=False)
             self.assertEqual(r['status'], status)
 
     def test_plan_only_without_execute(self):
@@ -146,9 +151,18 @@ class LendingTests(unittest.TestCase):
 
     def test_unsupported_debt_is_reported_not_sent(self):
         s = FakeSigner()
-        r = lending.cycle(FakeBackend([snap(debt=0)]), s, self.state, True)
+        r = lending.cycle(FakeBackend([snap(debt=0, nvda=0)]), s, self.state, True)
         self.assertEqual(r['status'], 'lending_unsupported_shortfall')
         self.assertEqual(s.sent, [])
+
+    def test_nvda_debt_executes_and_confirms(self):
+        b, s = FakeBackend([snap(debt=0, nvda=4 * 10**17), snap(debt=0, nvda=3 * 10**17, shortfall=0)]), FakeSigner()
+        r = lending.run(b, s, 1, ALICE, self.state, execute=True)
+        self.assertEqual(r['status'], 'healthy')
+        j = json.loads(lending.journal_path(self.state, 1).read_text())
+        a = j['attempts'][0]
+        self.assertEqual((a['state'], a['plan']['kind'], a['beforeDebt'], a['afterDebt']),
+                         ('confirmed', 'nvda', 4 * 10**17, 3 * 10**17))
 
     def test_margin_ignores_lending_journals(self):
         path = lending.journal_path(self.state, 3)
@@ -176,6 +190,13 @@ class LendingTests(unittest.TestCase):
         self.assertEqual(b.repay_amount(snap(debt=40_000_000, tokens=5 * 10**8)), 20_000_000)  # close factor
         b.c['maxRepayUsdg'] = 1_000_000
         self.assertEqual(b.repay_amount(snap(debt=40_000_000)), 1_000_000)  # configured ceiling
+        # NVDA debt at $128.7: seizable 0.1 SPY ($71.6) / 1.08 / $128.7 * 99 % = 0.51 NVDA; close factor on 0.4 NVDA = 0.2
+        prices[CONFIG['pNVDA']] = 1287 * 10**17
+        p = b.plan(snap(debt=0, nvda=4 * 10**17))
+        self.assertEqual(p['kind'], 'nvda')
+        self.assertEqual(p['maxRepay'], 2 * 10**17)
+        self.assertEqual(p['usdgIn'], 2 * 10**17 * 1287 * 10**17 // 10**18 // 10**12 * 97 // 100)
+        self.assertEqual(b.plan(snap(debt=10, nvda=4 * 10**17))['kind'], 'usdg')  # USDG debt first
 
     def test_config_requires_every_pin(self):
         with tempfile.NamedTemporaryFile('w', suffix='.json', delete=False) as f:
@@ -194,22 +215,36 @@ class WorkerLendingPolicyTests(unittest.TestCase):
 
     def test_policy_rejects_wrong_target_data_value_gas(self):
         s, m = self.signer()
-        good = dict(s.l.transaction(ALICE, 5), gas=hex(3_000_000))
+        P5 = {'kind': 'usdg', 'repay': 5, 'debtKey': 'debt'}
+        good = dict(s.l.transaction(ALICE, P5), gas=hex(3_000_000))
         for bad in [dict(good, to='0x' + 'ee' * 20), dict(good, data='0xdead'), dict(good, value='0x1'),
                     dict(good, gas=hex(12_000_001)), dict(good, **{'from': '0x' + '01' * 20})]:
             with self.assertRaises(ValueError):
-                s.submit(bad, 7, lending.LENDING_ID_BASE + 1, ALICE, 5)
+                s.submit(bad, 7, lending.LENDING_ID_BASE + 1, ALICE, P5)
         # the repay amount is part of the bound calldata
         with self.assertRaises(ValueError):
-            s.submit(good, 7, lending.LENDING_ID_BASE + 1, ALICE, 6)
+            s.submit(good, 7, lending.LENDING_ID_BASE + 1, ALICE, dict(P5, repay=6))
         m.journal.before_send.assert_not_called()
+
+    def test_nvda_plan_calldata_is_bound(self):
+        s, m = self.signer()
+        plan = {'kind': 'nvda', 'maxRepay': 10**17, 'usdgIn': 12_000_000, 'debtKey': 'nvdaDebt'}
+        real = lending.LendingBackend.__new__(lending.LendingBackend)
+        real.c, real.sender = CONFIG, worker.KEEPER
+        tx = real.transaction(ALICE, plan)
+        self.assertEqual(tx['to'], LIQ)
+        self.assertTrue(tx['data'].startswith(lending.cast('sig', 'liquidateNvdaDebt(address,uint256,uint256)')))
+        s.l = real
+        with self.assertRaises(ValueError):  # usdgIn changed after the intent
+            s.submit(dict(tx, gas=hex(3_000_000)), 7, lending.LENDING_ID_BASE + 1, ALICE, dict(plan, usdgIn=13_000_000))
 
     def test_nonce_change_refuses(self):
         s, m = self.signer()
         m.nonce.return_value = 8
-        good = dict(s.l.transaction(ALICE, 5), gas=hex(3_000_000))
+        P5 = {'kind': 'usdg', 'repay': 5, 'debtKey': 'debt'}
+        good = dict(s.l.transaction(ALICE, P5), gas=hex(3_000_000))
         with self.assertRaises(RuntimeError):
-            s.submit(good, 7, lending.LENDING_ID_BASE + 1, ALICE, 5)
+            s.submit(good, 7, lending.LENDING_ID_BASE + 1, ALICE, P5)
 
     def test_lending_off_by_default_and_never_raises(self):
         with patch.dict('os.environ', {}, clear=False):

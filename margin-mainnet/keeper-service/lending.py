@@ -1,8 +1,8 @@
 """pSPY-collateral lending liquidations: ordinary (non-margin) accounts with pUSDG debt and pSPY collateral.
 
 Off unless deployments/spy-collateral/keeper.json exists AND the worker runs with LENDING_LIQUIDATIONS=true.
-Every send is a call to the pinned SpyCollateralLiquidator (flash loan -> liquidateBorrow -> redeem -> swap -> repay;
-proceeds to the Ledger), so the keeper holds no inventory. Journals reuse the margin journal table with ids
+Every send is a call to the pinned SpyCollateralLiquidator (flash USDG -> [swap to NVDA] -> liquidateBorrow ->
+redeem -> swap -> repay; proceeds to the Ledger): `liquidate` for pUSDG debt, `liquidateNvdaDebt` for pNVDA debt, so the keeper holds no inventory. Journals reuse the margin journal table with ids
 >= LENDING_ID_BASE (base + 1-based index in the deterministic MarketEntered discovery order), and follow the same
 intent -> submitted -> confirmed state machine: unresolved sends stop new sends, never blind retries.
 
@@ -34,7 +34,7 @@ def load_config(path=CONFIG):
         return None
     config = json.loads(Path(path).read_text())
     for key in ('chainId', 'controller', 'pUSDG', 'pSPY', 'liquidator', 'liquidatorRuntimeHash',
-                'delegate', 'delegateRuntimeHash', 'fromBlock', 'maxRepayUsdg'):
+                'delegate', 'delegateRuntimeHash', 'fromBlock', 'maxRepayUsdg', 'pNVDA', 'maxRepayNvda'):
         if key not in config:
             raise ValueError('keeper.json misses ' + key)
     return config
@@ -64,7 +64,8 @@ class LendingBackend:
         code = rpc('eth_getCode', [self.c['delegate'], 'latest'], self.url)
         if cast('keccak', code).lower() != self.c['delegateRuntimeHash'].lower():
             raise RuntimeError('pSPY delegate bytecode changed')
-        expected = {'debtMarket()': self.c['pUSDG'], 'collateralMarket()': self.c['pSPY'], 'beneficiary()': LEDGER}
+        expected = {'debtMarket()': self.c['pUSDG'], 'collateralMarket()': self.c['pSPY'], 'beneficiary()': LEDGER,
+                    'nvdaDebtMarket()': self.c['pNVDA']}
         for signature, value in expected.items():
             if address(self.word(self.c['liquidator'], signature)[0]) != value.lower():
                 raise RuntimeError('Lending liquidator wiring mismatch: ' + signature)
@@ -102,32 +103,58 @@ class LendingBackend:
         margin = self.word(self.c['controller'], 'isolatedMarginAccounts(address)', account)[0] == 1
         tokens = self.word(self.c['pSPY'], 'balanceOf(address)', account)[0]
         debt = self.word(self.c['pUSDG'], 'borrowBalanceCurrent(address)', account)[0]
+        nvda_debt = self.word(self.c['pNVDA'], 'borrowBalanceCurrent(address)', account)[0]
         return {'account': account, 'err': err, 'liquidity': liquidity, 'shortfall': shortfall, 'margin': margin,
-                'pSpy': tokens, 'debt': debt, 'block': int(rpc('eth_blockNumber', [], self.url), 16)}
+                'pSpy': tokens, 'debt': debt, 'nvdaDebt': nvda_debt,
+                'block': int(rpc('eth_blockNumber', [], self.url), 16)}
 
-    def repay_amount(self, snap):
-        """min(close factor x debt, the debt whose seizure fits the pSPY balance (1 % margin), configured max)."""
+    def _bound(self, snap, debt, market, cap):
+        """min(close factor x debt, the debt whose seizure fits the pSPY balance (1 % margin), configured max), and
+        the debt market's controller price."""
         close = self.word(self.c['controller'], 'closeFactorMantissa()')[0]
         incentive = self.word(self.c['controller'], 'liquidationIncentiveMantissa()')[0]
         oracle = '0x' + format(self.word(self.c['controller'], 'oracle()')[0], '040x')
         p_spy = self.word(oracle, 'getUnderlyingPrice(address)', self.c['pSPY'])[0]
-        p_usd = self.word(oracle, 'getUnderlyingPrice(address)', self.c['pUSDG'])[0]
+        p_debt = self.word(oracle, 'getUnderlyingPrice(address)', market)[0]
         rate = self.word(self.c['pSPY'], 'exchangeRateStored()')[0]
-        if p_spy == 0 or p_usd == 0:
-            return 0
-        by_close = snap['debt'] * close // 10**18
-        # seizeTokens = repay * incentive * pUsd / (pSpy * rate)  <=  pSpy balance
-        by_collateral = snap['pSpy'] * p_spy * rate // (incentive * p_usd) * 99 // 100
-        return max(0, min(by_close, by_collateral, int(self.c['maxRepayUsdg'])))
+        if p_spy == 0 or p_debt == 0:
+            return 0, p_debt
+        by_close = debt * close // 10**18
+        # seizeTokens = repay * incentive * pDebt / (pSpy * rate)  <=  pSpy balance
+        by_collateral = snap['pSpy'] * p_spy * rate // (incentive * p_debt) * 99 // 100
+        return max(0, min(by_close, by_collateral, int(cap))), p_debt
+
+    def repay_amount(self, snap):
+        return self._bound(snap, snap['debt'], self.c['pUSDG'], self.c['maxRepayUsdg'])[0]
+
+    def plan(self, snap):
+        """pUSDG debt first (one fewer swap); then pNVDA debt. None when nothing can be repaid."""
+        if snap['debt'] > 0:
+            repay = self.repay_amount(snap)
+            return {'kind': 'usdg', 'repay': repay, 'debtKey': 'debt'} if repay else None
+        if snap.get('nvdaDebt', 0) > 0:
+            max_repay, p_nvda = self._bound(snap, snap['nvdaDebt'], self.c['pNVDA'], self.c['maxRepayNvda'])
+            # USDG in sized to buy ~97 % of max_repay at the controller price: pool fee and offset keep it below.
+            usdg_in = max_repay * p_nvda // 10**18 // 10**12 * 97 // 100
+            if not max_repay or not usdg_in:
+                return None
+            return {'kind': 'nvda', 'maxRepay': max_repay, 'usdgIn': usdg_in, 'debtKey': 'nvdaDebt'}
+        return None
 
     # ------------------------------------------------------------------ transactions
 
-    def transaction(self, account, repay):
-        data = cast('calldata', 'liquidate(address,uint256)', account, str(repay))
+    def transaction(self, account, plan):
+        if plan['kind'] == 'usdg':
+            data = cast('calldata', 'liquidate(address,uint256)', account, str(plan['repay']))
+        elif plan['kind'] == 'nvda':
+            data = cast('calldata', 'liquidateNvdaDebt(address,uint256,uint256)', account, str(plan['usdgIn']),
+                        str(plan['maxRepay']))
+        else:
+            raise ValueError('Unknown liquidation plan')
         return {'from': self.sender, 'to': self.c['liquidator'], 'data': data}
 
-    def simulate(self, account, repay):
-        tx = self.transaction(account, repay)
+    def simulate(self, account, plan):
+        tx = self.transaction(account, plan)
         rpc('eth_call', [tx, 'latest'], self.url)
         tx['gas'] = hex(int(rpc('eth_estimateGas', [tx], self.url), 16) * 3)
         return tx
@@ -167,9 +194,10 @@ def run(backend, signer, index, account, state, execute=False, max_calls=4):
             keeper.persist(path, journal)
             return {'status': 'reverted_stop'}
         after = backend.snapshot(account)
-        if after['debt'] >= previous['beforeDebt'] and after['debt'] != 0:
+        key = previous['plan']['debtKey']
+        if after[key] >= previous['beforeDebt'] and after[key] != 0:
             return {'status': 'no_progress_stop'}
-        previous.update(state='confirmed', afterDebt=after['debt'])
+        previous.update(state='confirmed', afterDebt=after[key])
         keeper.persist(path, journal)
     for _ in range(max_calls):
         snap = backend.snapshot(account)
@@ -181,25 +209,25 @@ def run(backend, signer, index, account, state, execute=False, max_calls=4):
             return {'status': 'liquidity_error', 'snapshot': snap}
         if snap['shortfall'] == 0:
             return {'status': 'healthy', 'snapshot': snap}
-        if snap['debt'] == 0:
-            # Shortfall from debt in another market (e.g. NVDA borrowed against pSPY): the liquidator repays pUSDG
-            # only. Reported, never sent.
+        if snap['debt'] == 0 and snap.get('nvdaDebt', 0) == 0:
+            # Shortfall from debt in a market the liquidator does not repay. Reported, never sent.
             return {'status': 'unsupported_debt_shortfall', 'snapshot': snap}
-        repay = backend.repay_amount(snap)
-        if repay == 0:
+        plan = backend.plan(snap)
+        if not plan:
             return {'status': 'not_executable_stop', 'reason': 'zero repay', 'snapshot': snap}
         try:
-            tx = backend.simulate(account, repay)
+            tx = backend.simulate(account, plan)
         except Exception as error:
             return {'status': 'not_executable_stop', 'reason': str(error), 'snapshot': snap}
         if not execute:
-            return {'status': 'executable_plan', 'transaction': tx, 'repay': repay, 'snapshot': snap}
+            return {'status': 'executable_plan', 'transaction': tx, 'plan': plan, 'snapshot': snap}
         nonce = signer.nonce()
-        attempt = {'state': 'intent', 'nonce': nonce, 'beforeDebt': snap['debt'], 'repay': repay, 'transaction': tx}
+        attempt = {'state': 'intent', 'nonce': nonce, 'beforeDebt': snap[plan['debtKey']], 'plan': plan,
+                   'transaction': tx}
         attempts.append(attempt)
         keeper.persist(path, journal)
         try:
-            attempt['hash'] = signer.submit(tx, nonce, jid, account, repay)
+            attempt['hash'] = signer.submit(tx, nonce, jid, account, plan)
             attempt['state'] = 'submitted'
             keeper.persist(path, journal)
         except Exception as error:
@@ -214,11 +242,12 @@ def run(backend, signer, index, account, state, execute=False, max_calls=4):
             keeper.persist(path, journal)
             return {'status': 'reverted_stop'}
         after = backend.snapshot(account)
-        if after['debt'] >= snap['debt'] and after['debt'] != 0:
+        key = plan['debtKey']
+        if after[key] >= snap[key] and after[key] != 0:
             attempt['state'] = 'no_progress'
             keeper.persist(path, journal)
             return {'status': 'no_progress_stop'}
-        attempt.update(state='confirmed', afterDebt=after['debt'])
+        attempt.update(state='confirmed', afterDebt=after[key])
         keeper.persist(path, journal)
     return {'status': 'call_budget_stop'}
 

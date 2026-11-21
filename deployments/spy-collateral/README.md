@@ -14,7 +14,8 @@ liquidation exactly as before.
  "pUSDG": "0x55aEd0569c8f0D166D71facE57B57C2f2624a563", "pSPY": "0xa6660499a9cB9B6691247fE1FAbc248f502E5fB3",
  "liquidator": "<SpyCollateralLiquidator>", "liquidatorRuntimeHash": "<cast keccak $(cast code <liquidator>)>",
  "delegate": "<RobinhoodSpyCollateralDelegate>", "delegateRuntimeHash": "<cast keccak $(cast code <delegate>)>",
- "fromBlock": <the ceremony's pSPY _supportMarket block>, "maxRepayUsdg": 100000000}
+ "fromBlock": <the ceremony's pSPY _supportMarket block>, "maxRepayUsdg": 100000000,
+ "pNVDA": "0xa155ccCB986774AE818b3F10F07d01D1b7A47b26", "maxRepayNvda": 1000000000000000000}
 ```
 
 Pins checked at startup:
@@ -34,5 +35,10 @@ Behaviour:
 - **Journals:** stored in the same table with ids >= 1e12, using the same intent / submitted / confirmed rules.
 - **Shared nonce:** while a lending send is unresolved, margin only monitors.
 - **Read failures:** they report `lending_degraded` and never stop margin. Only a failed or ambiguous send raises `operator_attention`.
-- **Shortfall without pUSDG debt** (for example NVDA borrowed against pSPY): reported as `lending_unsupported_shortfall`, nothing sent; the liquidator repays pUSDG only.
+- **Shortfall with pNVDA debt** (and no pUSDG debt): `liquidateNvdaDebt(account, usdgIn, maxRepay)`.
+  - `maxRepay = min(close factor x NVDA debt, seizable pSPY value / 1.08 x 99 %, maxRepayNvda)`.
+  - `usdgIn` buys about 97 % of `maxRepay` at the controller price.
+  - The contract flashes USDG, swaps it to NVDA, liquidates, swaps the seized SPY back to USDG and repays.
+  - Fork gas is 1.24-1.26M, so 3x the estimate stays under the 12M cap.
+- **pUSDG debt** is always repaid first. A shortfall with neither debt is reported as `lending_unsupported_shortfall` and nothing is sent.
 - **Smoke run 2026-11-19 (mainnet, monitor-only, no database):** `runtime_verified` (31/7), `lending_off` (disabled / no_config), then `monitoring` cycles. `CloudLendingSigner.submit` and `receipt` have never run end to end (unit-tested policy only).
